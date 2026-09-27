@@ -1,0 +1,72 @@
+import ExpoModulesCore
+import WidgetKit
+import WatchConnectivity
+import Security
+
+/// What the shell can't do from JavaScript: reload the widgets' timelines, hand the Watch its key
+/// over WatchConnectivity (src/sharedKey.ts mints it; targets/watch keeps it), and keep keys in
+/// the Keychain exactly as KinwallKit's KeychainConnectionStore does (expo-secure-store adds a
+/// suffix to the service name, which the widgets, Watch and Siri wouldn't find).
+public class KinwallNativeModule: Module {
+    private let watch = WatchBridge()
+
+    public func definition() -> ModuleDefinition {
+        Name("KinwallNative")
+        Events("watchStateChanged")
+        OnCreate {
+            self.watch.onChange = { [weak self] in self?.sendEvent("watchStateChanged") }
+            self.watch.start()
+        }
+        /// `shared`: the group the widgets, Watch and Siri read (SharedKeychain.group).
+        AsyncFunction("keychainGet") { (service: String, shared: Bool) -> String? in
+            var q = Keychain.query(service, shared)
+            q[kSecReturnData as String] = true
+            q[kSecMatchLimit as String] = kSecMatchLimitOne
+            var out: CFTypeRef?
+            guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+        AsyncFunction("keychainSet") { (service: String, shared: Bool, value: String?) in
+            let q = Keychain.query(service, shared)
+            guard let value else { SecItemDelete(q as CFDictionary); return }
+            let attrs: [String: Any] = [kSecValueData as String: Data(value.utf8), kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
+            var status = SecItemUpdate(q as CFDictionary, attrs as CFDictionary)
+            if status == errSecItemNotFound { status = SecItemAdd(q.merging(attrs) { $1 } as CFDictionary, nil) }
+            if status != errSecSuccess { throw Exception(name: "KeychainError", description: "Keychain status \(status)") }
+        }
+        Function("reloadWidgets") { WidgetCenter.shared.reloadAllTimelines() }
+        Function("watchAppInstalled") { self.watch.installed }
+        /// Delivered whenever the Watch is next reachable: {server, key}, or {signedOut: true}.
+        Function("updateWatch") { (context: [String: Any]) in
+            guard self.watch.installed else { return }
+            try WCSession.default.updateApplicationContext(context)
+        }
+    }
+}
+
+final class WatchBridge: NSObject, WCSessionDelegate {
+    var onChange: (() -> Void)?
+    var installed: Bool {
+        WCSession.isSupported() && WCSession.default.activationState == .activated && WCSession.default.isPaired && WCSession.default.isWatchAppInstalled
+    }
+    func start() {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) { onChange?() }
+    func sessionWatchStateDidChange(_ session: WCSession) { onChange?() } // e.g. the Watch app was just installed
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+    func sessionDidDeactivate(_ session: WCSession) { session.activate() } // switched to another Watch
+}
+
+enum Keychain {
+    /// KinwallKit's KeychainConnectionStore query: account "household", the service, and the group.
+    static func query(_ service: String, _ shared: Bool) -> [String: Any] {
+        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "household"]
+        if shared, let prefix = Bundle.main.object(forInfoDictionaryKey: "AppIdentifierPrefix") as? String, !prefix.isEmpty, !prefix.hasPrefix("$(") {
+            q[kSecAttrAccessGroup as String] = prefix + "family.kinwall.shared"
+        }
+        return q
+    }
+}

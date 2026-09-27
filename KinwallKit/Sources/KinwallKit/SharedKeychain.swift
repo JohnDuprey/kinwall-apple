@@ -1,6 +1,6 @@
 import Foundation
 
-/// The Keychain group the app and its widgets share (project.yml: keychain-access-groups), and
+/// The Keychain group the app and its widgets share (keychain-access-groups in app.json and targets/*/expo-target.config.js), and
 /// the widget key kept in it. The group needs the team prefix, which each target's Info.plist
 /// exposes as AppIdentifierPrefix.
 public enum SharedKeychain {

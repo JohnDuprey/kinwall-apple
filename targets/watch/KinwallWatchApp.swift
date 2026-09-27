@@ -30,7 +30,7 @@ struct KinwallWatchApp: App {
     }
 }
 
-/// Receives the Watch's key from the iPhone app (App/iOS/WatchLink.swift).
+/// Receives the Watch's key from the iPhone app (src/sharedKey.ts, through modules/kinwall-native).
 @MainActor @Observable
 final class PhoneLink: NSObject, WCSessionDelegate {
     private(set) var connection: Connection?
