@@ -123,11 +123,13 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const syncKey = () => web.current?.injectJavaScript(`window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'key', key: localStorage.getItem('kinwall.apiKey') })); true;`)
 
   const onMessage = async (e: WebViewMessageEvent) => {
-    let m: { type?: string; reason?: string; color?: string; key?: string | null }
+    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean }
     try { m = JSON.parse(e.nativeEvent.data) } catch { return }
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
       case 'signedIn': syncKey(); break
+      // Shopping mode (web/src/native.ts) keeps the screen on while you shop.
+      case 'keepAwake': (m.on ? activateKeepAwakeAsync('shop') : deactivateKeepAwake('shop')).catch(() => {}); break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
         if (m.reason === 'rejected' && session.mode === 'oauth') {
