@@ -10,8 +10,11 @@ cd "$(dirname "$0")/.."
 OUT="${OUT:-/tmp/kinwall-testflight}"   # outside ~/Documents: codesign trips over Finder metadata there
 BUILD="${BUILD:-$(date +%Y%m%d%H%M)}"   # every upload needs a new build number
 rm -rf "$OUT" && mkdir -p "$OUT"
-xcodegen generate --quiet
-xcodebuild archive -project Kinwall.xcodeproj -scheme Kinwall -configuration Release \
+# Generate ios/ from app.json, plugins/ and targets/ (CocoaPods needs a UTF-8 locale).
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+npm ci --silent
+CI=1 npx expo prebuild -p ios --clean >/dev/null
+xcodebuild archive -workspace ios/Kinwall.xcworkspace -scheme Kinwall -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$OUT/Kinwall.xcarchive" -derivedDataPath "$OUT/dd" \
   -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" CURRENT_PROJECT_VERSION="$BUILD" | tail -3
 cat > "$OUT/ExportOptions.plist" <<PLIST
