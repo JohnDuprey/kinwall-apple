@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser'
 import Constants from 'expo-constants'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
 import { StatusBar } from 'expo-status-bar'
@@ -11,6 +12,15 @@ import { useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
+
+// Web pages open in an in-app browser: handing them to the system lets another app claim the link
+// (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
+// non-web links (mailto:, tel:) still go to the system so their apps open.
+const MAPS = /^https?:\/\/(maps\.apple\.com|maps\.google\.|www\.google\.[^/]+\/maps)/
+function openOutside(url: string) {
+  if (/^https?:/.test(url) && !MAPS.test(url)) WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}))
+  else Linking.openURL(url).catch(() => {})
+}
 
 const isTablet = Platform.OS === 'ios' ? Platform.isPad : Math.min(Dimensions.get('screen').width, Dimensions.get('screen').height) >= 600
 const VERSION = Constants.expoConfig?.version ?? '0'
@@ -156,13 +166,13 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       onLoadEnd={() => { setLoading(false); syncKey(); if (pending.current) { go(pending.current); pending.current = null } }}
       onNavigationStateChange={(s) => { canGoBack.current = s.canGoBack }}
       onError={(e) => setFailed(e.nativeEvent.description)}
-      // Other sites (docs, maps, sign-in pages) open in the browser; Kinwall stays here.
+      // Other sites open outside the app (openOutside); Kinwall stays here.
       onShouldStartLoadWithRequest={(r) => {
         if (isKinwall(r.url) || r.url.startsWith('about:') || r.url.startsWith('blob:')) return true
-        if (r.isTopFrame !== false) Linking.openURL(r.url).catch(() => {})
+        if (r.isTopFrame !== false) openOutside(r.url)
         return false
       }}
-      onOpenWindow={(e) => { const u = e.nativeEvent.targetUrl; if (isKinwall(u)) web.current?.injectJavaScript(`location.href = ${JSON.stringify(u)}; true;`); else Linking.openURL(u).catch(() => {}) }}
+      onOpenWindow={(e) => { const u = e.nativeEvent.targetUrl; if (isKinwall(u)) web.current?.injectJavaScript(`location.href = ${JSON.stringify(u)}; true;`); else openOutside(u) }}
       onFileDownload={(e) => { Linking.openURL(e.nativeEvent.downloadUrl).catch(() => {}) }} // the photo zip, a saved drawing: the browser saves it
       contentInsetAdjustmentBehavior="never" // the page lays itself out with env(safe-area-inset-*)
       bounces={false}
