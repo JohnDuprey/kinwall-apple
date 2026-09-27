@@ -11,6 +11,7 @@ import { type Session, loadSession, signOut } from './session'
 import { syncWatch } from './sharedKey'
 import { SignIn } from './SignIn'
 import { WebShell } from './WebShell'
+import { useUi } from './theme'
 import KinwallNative from '../modules/kinwall-native'
 
 /** The phone and tablet app: the household's own Kinwall web app, full screen, in a native frame
@@ -21,6 +22,7 @@ export default function App() {
   const [session, setSession] = useState<Session>(null)
   const [route, setRoute] = useState<string | null>(null) // a tab to show, from a widget link or a reminder
   const url = Linking.useURL()
+  const ui = useUi()
   const tapped = Notifications.useLastNotificationResponse()
 
   useEffect(() => { loadServer().then(async (s) => { setSession(s ? await loadSession(s) : null); setServer(s) }) }, [])
@@ -50,8 +52,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {server === undefined ? null
-        : !server ? <SafeAreaView style={{ flex: 1 }}><ServerEntry onConnect={async (u) => { await saveServer(u); setServer(u) }} /></SafeAreaView>
-        : !session ? <SafeAreaView style={{ flex: 1 }}><SignIn server={server} onSession={setSession} onChangeServer={changeServer} /></SafeAreaView>
+        : !server ? <SafeAreaView style={ui.root}><ServerEntry onConnect={async (u) => { await saveServer(u); setServer(u) }} /></SafeAreaView>
+        : !session ? <SafeAreaView style={ui.root}><SignIn server={server} onSession={setSession} onChangeServer={changeServer} /></SafeAreaView>
         : <WebShell url={server} session={session} route={route} onRouteApplied={routeApplied} onTokens={onTokens} onSignedOut={signedOut} onChangeServer={changeServer} />}
     </SafeAreaProvider>
   )

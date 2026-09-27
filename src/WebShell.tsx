@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { Tokens } from './oauth'
 import { refreshReminders, requestPermission } from './reminders'
-import { ui } from './ServerEntry'
+import { useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
@@ -58,6 +58,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const web = useRef<WebView>(null)
   const [theme, setTheme] = useState('#ffffff')
   const [failed, setFailed] = useState<string | null>(null)
+  const ui = useUi()
   const [loading, setLoading] = useState(true)
   const [startsPairing, setStartsPairing] = useState<boolean | null>(null)
   const pending = useRef<string | null>(null)
@@ -137,12 +138,12 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
 
   const dark = isDark(theme)
   const view = failed ? (
-    <View style={ui.screen}>
+    <View style={ui.root}><View style={ui.screen}>
       <Text style={ui.title}>Can't reach Kinwall</Text>
       <Text style={ui.muted}>{failed}</Text>
       <Pressable style={ui.button} onPress={() => { setFailed(null); web.current?.reload() }}><Text style={ui.buttonText}>Try again</Text></Pressable>
       <Pressable onPress={onChangeServer}><Text style={ui.link}>Change server</Text></Pressable>
-    </View>
+    </View></View>
   ) : startsPairing === null ? null : (
     <WebView
       ref={web}
