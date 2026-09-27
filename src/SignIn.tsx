@@ -1,0 +1,39 @@
+import { useState } from 'react'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { signIn } from './oauth'
+import { ui } from './ServerEntry'
+import { type Session, choosePairing, signedIn } from './session'
+
+/** Sign in with Kinwall's OAuth in the system's auth sheet (passkeys work there on any domain), or
+ * pair with a code an admin approves (kids' phones, wall tablets). */
+export function SignIn({ server, onSession, onChangeServer }: { server: string; onSession: (s: Session) => void; onChangeServer: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const start = async () => {
+    setBusy(true); setProblem(null)
+    try {
+      const tokens = await signIn(server)
+      if (tokens) onSession(await signedIn(tokens)) // null: closed the sheet, stay here quietly
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : String(e))
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <View style={ui.screen}>
+      <Text style={ui.title}>Sign in to Kinwall</Text>
+      <Text style={ui.muted}>{new URL(server).host}</Text>
+      <Pressable style={[ui.button, busy && ui.disabled]} onPress={start} disabled={busy}>
+        {busy ? <ActivityIndicator color="#fff" /> : <Text style={ui.buttonText}>Sign in</Text>}
+      </Pressable>
+      <Text style={[ui.muted, ui.footnote]}>Opens your Kinwall in a secure sheet. Sign in with your passkey and approve this app.</Text>
+      {problem && <Text style={ui.problem}>{problem}</Text>}
+      <Pressable style={[ui.button, ui.secondary, busy && ui.disabled]} onPress={async () => onSession(await choosePairing())} disabled={busy}>
+        <Text style={[ui.buttonText, ui.secondaryText]}>Pair with a code instead</Text>
+      </Pressable>
+      <Text style={[ui.muted, ui.footnote]}>For a child's phone or a wall tablet: this device shows a code, and an admin approves it in Kinwall under Settings → Access.</Text>
+      <Pressable onPress={onChangeServer}><Text style={ui.link}>Use a different server</Text></Pressable>
+    </View>
+  )
+}
