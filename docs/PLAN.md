@@ -2,10 +2,7 @@
 
 Open source, not released yet. Nothing here ships to the App Store until there's a paid Apple Developer Program membership; until then the apps run in the Simulator and, signed with a free Apple ID, on our own devices.
 
-**Not enrolled yet.** Builds are signed with a free Apple ID (Personal Team) and installed over USB with `scripts/install-device.sh`; they expire after 7 days. Once there's a paid membership, test builds go through **TestFlight** instead: no 7-day expiry (a build lasts 90 days), properly signed widgets, Watch app and shared Keychain, and installs on the family's devices through the TestFlight app. The TestFlight steps below are ready for that day:
-
-- **One-time setup:** sign in to Xcode with the developer account (**Xcode → Settings → Accounts**). In App Store Connect, create the app (**Apps → +**) with bundle ID `family.kinwall.app`. If that bundle ID isn't in the list yet, run the script once with `UPLOAD=0` first: its archive registers the App IDs. Add testers under **TestFlight → Internal Testing**.
-- **Each build:** `TEAM=<team ID> scripts/testflight.sh` archives with automatic signing, stamps a new build number and uploads. Internal testers get it without review once it's processed.
+**Not enrolled yet.** Builds use a free Apple ID and expire after 7 days. TestFlight (`scripts/testflight.sh`) comes with the paid membership.
 
 **Update 2026-09-27: React Native (Expo), and Android.** The phone and tablet app is now one Expo app for iOS and Android (`src/`), replacing the SwiftUI frame. It does what the Swift frame did: the address screen, OAuth in the system's auth sheet (`expo-web-browser`) or pairing, the web view with the same in-app flags, widget links (`family.kinwall.app:/open?to=…`), local reminders and background refresh, the theme-colored status bar. The iOS widgets, the Watch app, complications and Siri stay Swift on `KinwallKit`, added to the generated Xcode project by `@bacons/apple-targets` and `plugins/withKinwallNative.js`, and still read the widgets' key from the shared Keychain group `family.kinwall.shared`. XcodeGen and `project.yml` are gone. Android gets the same shell, a notification channel for reminders, the back button stepping back through the web app, and a home-screen widget (now and next, chores left). **Wear OS comes later** (M8).
 
