@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
 import { useCallback, useEffect, useState } from 'react'
 import { AppState } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import type { Tokens } from './oauth'
 import { refreshReminders, scheduleBackgroundRefresh } from './reminders'
@@ -52,8 +53,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {server === undefined ? null
-        : !server ? <SafeAreaView style={ui.root}><ServerEntry onConnect={async (u) => { await saveServer(u); setServer(u) }} /></SafeAreaView>
-        : !session ? <SafeAreaView style={ui.root}><SignIn server={server} onSession={setSession} onChangeServer={changeServer} /></SafeAreaView>
+        : !server ? <SafeAreaView style={ui.root}><StatusBar style={ui.dark ? 'light' : 'dark'} /><ServerEntry onConnect={async (u) => { await saveServer(u); setServer(u) }} /></SafeAreaView>
+        : !session ? <SafeAreaView style={ui.root}><StatusBar style={ui.dark ? 'light' : 'dark'} /><SignIn server={server} onSession={setSession} onChangeServer={changeServer} /></SafeAreaView>
         : <WebShell url={server} session={session} route={route} onRouteApplied={routeApplied} onTokens={onTokens} onSignedOut={signedOut} onChangeServer={changeServer} />}
     </SafeAreaProvider>
   )
