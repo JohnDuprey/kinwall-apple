@@ -2,7 +2,7 @@
 
 Open source, not released yet. Nothing here ships to the App Store until there's a paid Apple Developer Program membership; until then the apps run in the Simulator and, signed with a free Apple ID, on our own devices.
 
-**Update 2026-09-26: the paid membership is active.** Test builds now go through **TestFlight**: no 7-day expiry (a build lasts 90 days), properly signed widgets, Watch app and shared Keychain, and installs on the family's devices through the TestFlight app.
+**Not enrolled yet.** Builds are signed with a free Apple ID (Personal Team) and installed over USB with `scripts/install-device.sh`; they expire after 7 days. Once there's a paid membership, test builds go through **TestFlight** instead: no 7-day expiry (a build lasts 90 days), properly signed widgets, Watch app and shared Keychain, and installs on the family's devices through the TestFlight app. The TestFlight steps below are ready for that day:
 
 - **One-time setup:** sign in to Xcode with the developer account (**Xcode → Settings → Accounts**). In App Store Connect, create the app (**Apps → +**) with bundle ID `family.kinwall.app`. If that bundle ID isn't in the list yet, run the script once with `UPLOAD=0` first: its archive registers the App IDs. Add testers under **TestFlight → Internal Testing**.
 - **Each build:** `TEAM=<team ID> scripts/testflight.sh` archives with automatic signing, stamps a new build number and uploads. Internal testers get it without review once it's processed.
@@ -92,7 +92,7 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 - "Add milk to Groceries", "What's next?", "Mark Take out trash done", "How many points does Maya have?"
 - Spotlight for lists and chores
 
-### M6: When there's a paid membership (membership active; APNs and Associated Domains still to do)
+### M6: When there's a paid membership (not enrolled yet)
 - **APNs push:** the server gains an APNs sender beside web push, using the same notification preferences
 - **App Groups** for the app and widgets (retire any workaround from M3)
 - **Passkeys and universal links** (Associated Domains on `kinwall.family`)

@@ -1,6 +1,6 @@
 # Kinwall mobile
 
-iPhone, iPad, Apple Watch and Android apps for [Kinwall](https://github.com/JohnDuprey/kinwall), the family wall calendar. Not in the app stores yet: build it yourself and install it on your own devices (see below), or use TestFlight. [docs/PLAN.md](docs/PLAN.md) has the plan and the milestones.
+iPhone, iPad, Apple Watch and Android apps for [Kinwall](https://github.com/JohnDuprey/kinwall), the family wall calendar. Not in the app stores yet: build it yourself and install it on your own devices (see below). TestFlight comes with a paid Apple Developer membership, which the project doesn't have yet. [docs/PLAN.md](docs/PLAN.md) has the plan and the milestones.
 
 The phone and tablet app is one [Expo](https://expo.dev) (React Native) app for iOS and Android: the household's own Kinwall web app, full screen in a native frame, plus what a web page can't do (reminders as local notifications, home-screen widgets, the Watch app, Siri). The iOS widgets, the Watch app, its complications and the Siri intents stay native Swift on top of `KinwallKit`.
 
@@ -77,7 +77,7 @@ The script runs `expo prebuild` and installs a Release build with the JavaScript
 
 - **Free Apple ID:** the first time, trust your developer account on the device (**Settings → General → VPN & Device Management**). The build stops opening after 7 days; run the script again to renew it.
 - **Apple Watch:** the Watch app comes inside the iPhone app. For a development build the Watch has to be paired with Xcode too (it connects over the network, so a firewall blocking incoming connections stops it). Then install it from the iPhone's **Watch** app → **Available Apps**.
-- **Paid membership:** `TEAM=<team ID> scripts/testflight.sh` uploads a TestFlight build instead.
+- **Paid membership (not enrolled yet):** `TEAM=<team ID> scripts/testflight.sh` would upload a TestFlight build instead.
 
 **Android:** turn on USB debugging on the phone and run `npx expo run:android --variant release`.
 
