@@ -4,7 +4,7 @@
 const { withXcodeProjectBeta } = require('@bacons/apple-targets/build/with-bacons-xcode')
 const withTargets = require('@bacons/apple-targets/app.plugin')
 const { PBXBuildFile, PBXFileReference, PBXNativeTarget, XCLocalSwiftPackageReference, XCSwiftPackageProductDependency } = require('@bacons/xcode')
-const { withDangerousMod, withEntitlementsPlist, withInfoPlist, withXcodeProject } = require('expo/config-plugins')
+const { withAppDelegate, withDangerousMod, withEntitlementsPlist, withInfoPlist, withXcodeProject } = require('expo/config-plugins')
 const fs = require('fs')
 const path = require('path')
 
@@ -68,5 +68,33 @@ const withLocalOnly = (config) => {
   return withEntitlementsPlist(config, (c) => { delete c.modResults['aps-environment']; return c })
 }
 
+// iOS 27 kills apps built with its SDK at launch unless they use the scene life cycle (the
+// simulator only warns). Expo ships the scene delegate; the prebuild template's AppDelegate doesn't
+// use it yet, so hand window creation to it: declare the scene, and stop starting React Native in
+// the app delegate. Drop this once the template does it.
+const withSceneLifecycle = (config) => {
+  config = withInfoPlist(config, (c) => {
+    c.modResults.UIApplicationSceneManifest = {
+      UIApplicationSupportsMultipleScenes: false,
+      UISceneConfigurations: {
+        UIWindowSceneSessionRoleApplication: [
+          { UISceneConfigurationName: 'Default Configuration', UISceneDelegateClassName: 'EXExpoAppSceneDelegate' },
+        ],
+      },
+    }
+    return c
+  })
+  return withAppDelegate(config, (c) => {
+    let src = c.modResults.contents
+    if (!src.includes('ExpoReactNativeFactoryProvider')) {
+      src = src.replace('class AppDelegate: ExpoAppDelegate {', 'class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {')
+      src = src.replace(/\n#if os\(iOS\) \|\| os\(tvOS\)\n\s*window = UIWindow\(frame: UIScreen\.main\.bounds\)\n\s*factory\.startReactNative\([\s\S]*?\)\n#endif\n/, '\n')
+      if (src.includes('startReactNative')) throw new Error('withSceneLifecycle: the AppDelegate template changed; update the patch')
+    }
+    c.modResults.contents = src
+    return c
+  })
+}
+
 // Mods run newest-first, so register ours before apple-targets' and it runs once the targets exist.
-module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withSpacesInPath(config))), {})
+module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withSceneLifecycle(withSpacesInPath(config)))), {})
