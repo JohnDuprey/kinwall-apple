@@ -15,7 +15,7 @@ const PREFIX = 'rem:'
 const CAP = 60
 /** How far ahead to schedule. Refreshes happen well within this. */
 const HORIZON = 48 * 3600 * 1000
-const CHANNEL = 'reminders'
+export const CHANNEL = 'reminders'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),

@@ -6,6 +6,8 @@ The phone and tablet app is one [Expo](https://expo.dev) (React Native) app for 
 
 The first screen asks for the family's Kinwall address, or **Try the demo** opens the demo family (demo.kinwall.family) with no sign-in. Nothing is saved there, and **Leave demo** in its top bar goes back to the first screen.
 
+The demo also shows what's native, with sample data built into the app (no server): on iPhone and iPad the widgets show the demo family ("Our Family", marked **Demo**: today's events, Maya's and Leo's chores, Groceries), and on both platforms two sample reminders arrive about 20 and 60 seconds after entering (Soccer Practice, then Leo's chores), each opening the demo's calendar or chores when tapped. The first time, a short tip says how to add a widget. `src/demo.ts` sets a flag in the shared Keychain group (`family.kinwall.demo`, KinwallKit's `SharedKeychain.demoStore`) that the widgets read; they ignore it whenever a real family is connected. Leaving the demo, connecting a server, or relaunching the app clears the flag and cancels the demo's reminders (identifiers `demo:…`; real reminders are `rem:…` and are never touched). The Android widget and the Watch don't have demo data.
+
 ## Layout
 
 | Path | What |

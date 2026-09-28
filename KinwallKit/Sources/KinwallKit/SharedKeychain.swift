@@ -15,5 +15,12 @@ public enum SharedKeychain {
     public static var widgetStore: KeychainConnectionStore {
         KeychainConnectionStore(service: "family.kinwall.widgets", accessGroup: group)
     }
+
+    /// Set by the app while the demo family is open (src/demo.ts), cleared when it closes. The
+    /// widgets then show bundled sample data, but only while `widgetStore` is empty: a real family
+    /// always wins.
+    public static var demoStore: KeychainConnectionStore {
+        KeychainConnectionStore(service: "family.kinwall.demo", accessGroup: group)
+    }
     #endif
 }

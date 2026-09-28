@@ -14,6 +14,7 @@ struct ChoresEntry: TimelineEntry {
     let chores: [ChoreDay]
     let member: MemberEntity?
     let signedOut: Bool
+    var demo = false
 }
 
 struct ChoresProvider: AppIntentTimelineProvider {
@@ -23,14 +24,16 @@ struct ChoresProvider: AppIntentTimelineProvider {
         Timeline(entries: [await entry(configuration)], policy: .after(.now.addingTimeInterval(30 * 60)))
     }
     private func entry(_ config: ChoresConfig) async -> ChoresEntry {
-        guard let client = try? widgetClient() else { return ChoresEntry(date: .now, day: "", chores: [], member: nil, signedOut: true) }
-        let tz = (try? await client.settings())?.timezone
+        let client = try? widgetClient()
+        let demo = client == nil && Demo.isOn // the demo family's sample chores (KinwallWidgets.swift)
+        guard client != nil || demo else { return ChoresEntry(date: .now, day: "", chores: [], member: nil, signedOut: true) }
+        let tz = (try? await client?.settings())?.timezone
         let day = HouseholdDate.key(timezone: tz)
-        let all = (try? await client.chores(on: day)) ?? []
+        let all = demo ? Demo.chores : ((try? await client?.chores(on: day)) ?? [])
         let mine: [ChoreDay]
         let member: MemberEntity?
         var person: Member?
-        if !config.onlyAnyone, let id = config.member, id != MemberOptions.everyone { person = (try? await client.members())?.first { $0.id == id } }
+        if !config.onlyAnyone, let id = config.member, id != MemberOptions.everyone { person = (demo ? Demo.members : try? await client?.members())?.first { $0.id == id } }
         if config.onlyAnyone {
             member = .anyone; mine = all.filter(\.isAnyone)
         } else if let m = person {
@@ -39,14 +42,14 @@ struct ChoresProvider: AppIntentTimelineProvider {
         } else {
             member = nil; mine = config.includeAnyone ? all : all.filter { !$0.isAnyone } // everyone
         }
-        return ChoresEntry(date: .now, day: day, chores: mine.sorted { !$0.completed && $1.completed }, member: member, signedOut: false)
+        return ChoresEntry(date: .now, day: day, chores: mine.sorted { !$0.completed && $1.completed }, member: member, signedOut: false, demo: demo)
     }
 }
 
 struct ChoresWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "Chores", intent: ChoresConfig.self, provider: ChoresProvider()) { entry in
-            ChoresView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            ChoresView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Chores")
         .description("Tick off today's chores. Set to a person, Anyone chores count for them; otherwise Kinwall asks who did it.")
@@ -103,7 +106,9 @@ struct ChoresView: View {
         // app to ask "Who did it?", and an unfinished checklist has to be finished there first.
         let person = entry.member?.isAnyone == false ? entry.member?.id : nil
         let needsApp = !chore.completed && ((chore.checklist.map { !$0.isFinished } ?? false) || (chore.isAnyone && person == nil))
-        if needsApp {
+        if entry.demo {
+            Link(destination: URL(string: "family.kinwall.app:/open?to=chores")!) { label } // sample data: ticking happens in the demo itself
+        } else if needsApp {
             Link(destination: URL(string: "family.kinwall.app:/open?to=chores&done=\(chore.id)")!) { label }
         } else {
             Button(intent: ToggleChoreIntent(choreId: chore.id, date: entry.day, done: !chore.completed, creditTo: chore.memberId ?? person)) { label }
@@ -118,6 +123,7 @@ struct ListEntry: TimelineEntry {
     let date: Date
     let list: ListDetail?
     let signedOut: Bool
+    var demo = false
 }
 
 struct ListProvider: AppIntentTimelineProvider {
@@ -127,7 +133,9 @@ struct ListProvider: AppIntentTimelineProvider {
         Timeline(entries: [await entry(configuration)], policy: .after(.now.addingTimeInterval(30 * 60)))
     }
     private func entry(_ config: ListConfig) async -> ListEntry {
-        guard let client = try? widgetClient() else { return ListEntry(date: .now, list: nil, signedOut: true) }
+        guard let client = try? widgetClient() else {
+            return Demo.isOn ? ListEntry(date: .now, list: Demo.groceries, signedOut: false, demo: true) : ListEntry(date: .now, list: nil, signedOut: true)
+        }
         var id = config.list
         if id == nil { id = try? await client.lists().first { !$0.archived && $0.kind == .shopping }?.id } // default: the first shopping list
         guard let id, let detail = try? await client.list(id) else { return ListEntry(date: .now, list: nil, signedOut: false) }
@@ -138,7 +146,7 @@ struct ListProvider: AppIntentTimelineProvider {
 struct ListWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "List", intent: ListConfig.self, provider: ListProvider()) { entry in
-            ListWidgetView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            ListWidgetView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("List")
         .description("Tick items off a list, like Groceries.")
@@ -160,15 +168,18 @@ struct ListWidgetView: View {
                     Text(open.isEmpty ? "All done 🎉" : "\(open.count) left").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 ForEach(open.prefix(family == .systemLarge ? 9 : 3)) { item in
-                    Button(intent: ToggleItemIntent(listId: list.list.id, itemId: item.id, done: true)) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "circle").font(.title3).foregroundStyle(.secondary)
-                            Text(item.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            if let q = item.quantity, !q.isEmpty { Text(q).font(.caption).foregroundStyle(.secondary) }
-                            Spacer(minLength: 0)
-                        }
+                    let label = HStack(spacing: 8) {
+                        Image(systemName: "circle").font(.title3).foregroundStyle(.secondary)
+                        Text(item.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        if let q = item.quantity, !q.isEmpty { Text(q).font(.caption).foregroundStyle(.secondary) }
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
+                    if entry.demo {
+                        Link(destination: URL(string: "family.kinwall.app:/open?to=lists")!) { label } // sample data: ticking happens in the demo itself
+                    } else {
+                        Button(intent: ToggleItemIntent(listId: list.list.id, itemId: item.id, done: true)) { label }
+                            .buttonStyle(.plain)
+                    }
                 }
                 if open.count > (family == .systemLarge ? 9 : 3) { Text("+\(open.count - (family == .systemLarge ? 9 : 3)) more").font(.caption).foregroundStyle(.secondary) }
                 Spacer(minLength: 0)

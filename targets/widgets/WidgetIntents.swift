@@ -34,7 +34,7 @@ struct MemberEntity {
 struct MemberOptions: DynamicOptionsProvider {
     static let everyone = "Everyone"
     func results() async throws -> ItemCollection<String> {
-        let members = (try? await widgetClient().members()) ?? []
+        let members = Demo.isOn ? Demo.members : ((try? await widgetClient().members()) ?? [])
         return ItemCollection {
             ItemSection(items: [IntentItem(Self.everyone, title: "Everyone")])
             ItemSection(items: members.map { IntentItem($0.id, title: "\($0.avatar.map { "\($0) " } ?? "")\($0.name)") })
@@ -46,7 +46,7 @@ struct MemberOptions: DynamicOptionsProvider {
 /// The lists to pick from on a List widget, saved by id (a plain string, like the Chores widget's person).
 struct ListOptions: DynamicOptionsProvider {
     func results() async throws -> ItemCollection<String> {
-        let lists = try await widgetClient().lists().filter { !$0.archived }
+        let lists = Demo.isOn ? [Demo.groceries.list] : try await widgetClient().lists().filter { !$0.archived }
         return ItemCollection { ItemSection(items: lists.map { IntentItem($0.id, title: "\($0.emoji.map { "\($0) " } ?? "")\($0.name)") }) }
     }
 }

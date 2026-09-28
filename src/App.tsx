@@ -5,6 +5,7 @@ import { AppState } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import type { Tokens } from './oauth'
+import { DEMO_URL, enterDemo, leaveDemo } from './demo'
 import { refreshReminders, scheduleBackgroundRefresh } from './reminders'
 import { clearServer, loadServer, saveServer } from './server'
 import { ServerEntry } from './ServerEntry'
@@ -18,8 +19,6 @@ import KinwallNative from '../modules/kinwall-native'
 /** The phone and tablet app: the household's own Kinwall web app, full screen, in a native frame
  * (docs/PLAN.md). First launch asks for the server, then signs in (OAuth in the system's auth
  * sheet, or a pairing code). */
-/** The demo family (a static copy of the web app with sample data): no sign-in, nothing saved. */
-export const DEMO_URL = 'https://demo.kinwall.family'
 
 export default function App() {
   const [server, setServer] = useState<string | null | undefined>() // undefined: still loading
@@ -29,7 +28,8 @@ export default function App() {
   const ui = useUi()
   const tapped = Notifications.useLastNotificationResponse()
 
-  useEffect(() => { loadServer().then(async (s) => { setSession(s ? await loadSession(s) : null); setServer(s) }) }, [])
+  // The demo is never saved, so a fresh launch clears anything it left for the widgets and reminders.
+  useEffect(() => { leaveDemo(); loadServer().then(async (s) => { setSession(s ? await loadSession(s) : null); setServer(s) }) }, [])
 
   // Widget links: family.kinwall.app:/open?to=chores (or calendar, lists), plus &done=<chore id>
   // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
@@ -49,17 +49,18 @@ export default function App() {
     return () => { sub.remove(); watch?.remove() }
   }, [])
 
-  // Leaving the demo is the same as changing server: back to the first screen (the demo was never saved).
-  const changeServer = useCallback(async () => { if (session?.mode !== 'demo') { await signOut(session); await clearServer() } setSession(null); setServer(null) }, [session])
-  const signedOut = useCallback(async () => { if (session?.mode === 'demo') { setSession(null); setServer(null); return } await signOut(session); setSession(null) }, [session])
-  const tryDemo = useCallback(() => { setSession({ mode: 'demo' }); setServer(DEMO_URL) }, [])
+  // Leaving the demo is the same as changing server: back to the first screen (the demo was never
+  // saved), with its sample widgets and reminders cleared (src/demo.ts).
+  const changeServer = useCallback(async () => { if (session?.mode === 'demo') await leaveDemo(); else { await signOut(session); await clearServer() } setSession(null); setServer(null) }, [session])
+  const signedOut = useCallback(async () => { if (session?.mode === 'demo') { await leaveDemo(); setSession(null); setServer(null); return } await signOut(session); setSession(null) }, [session])
+  const tryDemo = useCallback(() => { setSession({ mode: 'demo' }); setServer(DEMO_URL); enterDemo() }, [])
   const onTokens = useCallback((tokens: Tokens) => setSession({ mode: 'oauth', tokens }), [])
   const routeApplied = useCallback(() => setRoute(null), [])
 
   return (
     <SafeAreaProvider>
       {server === undefined ? null
-        : !server ? <SafeAreaView style={ui.root}><StatusBar style={ui.dark ? 'light' : 'dark'} /><ServerEntry onConnect={async (u) => { await saveServer(u); setServer(u) }} onDemo={tryDemo} /></SafeAreaView>
+        : !server ? <SafeAreaView style={ui.root}><StatusBar style={ui.dark ? 'light' : 'dark'} /><ServerEntry onConnect={async (u) => { await leaveDemo(); await saveServer(u); setServer(u) }} onDemo={tryDemo} /></SafeAreaView>
         : !session ? <SafeAreaView style={ui.root}><StatusBar style={ui.dark ? 'light' : 'dark'} /><SignIn server={server} onSession={setSession} onChangeServer={changeServer} /></SafeAreaView>
         : <WebShell url={server} session={session} route={route} onRouteApplied={routeApplied} onTokens={onTokens} onSignedOut={signedOut} onChangeServer={changeServer} />}
     </SafeAreaProvider>
