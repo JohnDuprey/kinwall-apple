@@ -129,6 +129,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       case 'theme': if (m.color) setTheme(m.color); break
       case 'signedIn': syncKey(); break
       // Shopping mode (web/src/native.ts) keeps the screen on while you shop.
+      case 'leaveDemo': if (session.mode === 'demo') onChangeServer(); break // web/src/native.ts: the demo bar's Leave demo
       case 'keepAwake': (m.on ? activateKeepAwakeAsync('shop') : deactivateKeepAwake('shop')).catch(() => {}); break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
@@ -138,7 +139,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
         }
         onSignedOut(); break
       case 'key':
-        if (!m.key) return
+        if (!m.key || session.mode === 'demo') return // the demo's sample key never reaches the widgets, Watch or reminders
         if (session.mode === 'paired') await shareKey({ baseURL: url, key: m.key })
         await ensureWidgetKey(url, m.key)
         reloadWidgets()

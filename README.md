@@ -4,6 +4,8 @@ iPhone, iPad, Apple Watch and Android apps for [Kinwall](https://github.com/John
 
 The phone and tablet app is one [Expo](https://expo.dev) (React Native) app for iOS and Android: the household's own Kinwall web app, full screen in a native frame, plus what a web page can't do (reminders as local notifications, home-screen widgets, the Watch app, Siri). The iOS widgets, the Watch app, its complications and the Siri intents stay native Swift on top of `KinwallKit`.
 
+The first screen asks for the family's Kinwall address, or **Try the demo** opens the demo family (demo.kinwall.family) with no sign-in. Nothing is saved there, and **Leave demo** in its top bar goes back to the first screen.
+
 ## Layout
 
 | Path | What |

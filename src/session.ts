@@ -6,7 +6,7 @@ import { reloadWidgets } from './widgets'
 
 // How this device is signed in to the household: OAuth tokens (kept fresh here), or a paired
 // key the web app holds itself. Null means "show the sign-in screen".
-export type Session = { mode: 'oauth'; tokens: Tokens } | { mode: 'paired' } | null
+export type Session = { mode: 'oauth'; tokens: Tokens } | { mode: 'paired' } | { mode: 'demo' } | null
 
 const PAIRED = 'signedInWithPairing'
 

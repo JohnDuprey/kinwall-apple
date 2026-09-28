@@ -5,7 +5,7 @@ import { normalizeServer } from './server'
 import { useUi } from './theme'
 
 /** First launch: where is the family's Kinwall? Checks the address answers like a Kinwall server before handing it over. */
-export function ServerEntry({ onConnect }: { onConnect: (url: string) => void }) {
+export function ServerEntry({ onConnect, onDemo }: { onConnect: (url: string) => void; onDemo: () => void }) {
   const [address, setAddress] = useState('')
   const [checking, setChecking] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -36,6 +36,10 @@ export function ServerEntry({ onConnect }: { onConnect: (url: string) => void })
         {checking ? <ActivityIndicator color={ui.c.ink} /> : <Text style={[ui.buttonText, !address.trim() && ui.disabledText]}>Connect</Text>}
       </Pressable>
       <Text style={[ui.muted, ui.footnote]}>You'll sign in on the next screen. An admin approves this device in Kinwall under Settings → Access.</Text>
+      <Pressable onPress={onDemo} accessibilityRole="button" accessibilityHint="Opens Kinwall with a sample family. Nothing is saved.">
+        <Text style={ui.link}>Try the demo</Text>
+      </Pressable>
+      <Text style={[ui.muted, ui.footnote]}>A sample family to look around in. Nothing is saved.</Text>
     </View>
   )
 }

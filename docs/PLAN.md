@@ -132,6 +132,19 @@ None is needed for M0 to M5; everything above uses existing endpoints. Nice-to-h
 3. **Before M1 ships to the family's phones:** decide whether the apps pair with your hosted household, a local server, or both. The app supports any URL either way.
 4. **Later:** the Apple Developer Program ($99/year) unlocks M6.
 
+## App Store readiness (before the first submission)
+
+- [ ] **More than a website (4.2).** The screenshots and review notes lead with what's native: widgets, the Watch app, the share sheet's recipe import, push notifications, Siri and Shortcuts. The app handles no network gracefully (the "Can't reach Kinwall" screen, never a blank page), shows no browser chrome, and opens other sites in the in-app browser.
+- [ ] **No purchases in the app (3.1.1).** No prices, plans, sign-up or "subscribe" anywhere in the app: it only signs in to an existing Kinwall, hosted or self-hosted. Checked 2026-09-28: the app has none. If hosted sign-up ever moves into the app, it needs in-app purchase, or (US storefront only) a link out to the website.
+- [ ] **Reviewer access.** **Try the demo** on the first screen opens the demo family with no sign-in. The review notes say so, and also give a hosted test family with a pairing code in case they want to try sign-in.
+- [ ] **Account deletion (5.1.1(v)).** Accounts are created on the web, not in the app, but the app links to how to delete the family's data (Settings → Your data on the web).
+- [ ] **Privacy.** Privacy policy URL; privacy nutrition labels that match what the app and server collect (the Health tracker is health data, encrypted at rest); the privacy manifest (PrivacyInfo.xcprivacy) with required-reason APIs; no third-party analytics.
+- [ ] **Third-party AI (5.1.2).** The privacy policy says connected apps (Claude and others over MCP) get family data only when a parent connects them, never health entries unless turned on.
+- [ ] **Kids.** Not in the Kids category; age rating 4+; no purchase or outside links shown on a kid's device.
+- [ ] **Sign in with Apple (4.8)** only if a third-party account login (for example "Sign in with Google") is ever added. Calendar sync with Google doesn't count.
+- [ ] **Only documented APIs.** The share extension imports inside the sheet (no opening the app through the responder chain).
+- [ ] **Apple Developer Program** membership (M6). A Personal Team can't submit.
+
 ## Risks
 
 - **7-day expiry** on a Personal Team makes daily use by the family awkward. Treat M1 to M5 as a preview until M6.
