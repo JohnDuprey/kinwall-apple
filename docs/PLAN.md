@@ -18,6 +18,7 @@ Native apps for the family who already use Kinwall. On iPhone and iPad the app s
 | Run on our own iPhone, iPad and paired Watch | Yes, from Xcode. The signature expires after **7 days**; reinstall from Xcode to renew | Yes, a year |
 | Widgets and watch complications (WidgetKit) | Yes | Yes |
 | Siri and Shortcuts (App Intents) | Yes | Yes |
+| Share extension (imports a shared recipe link; shared Keychain group, no App Group) | Yes | Yes |
 | **App Groups** (app and widget share storage) | No | Yes |
 | **Push notifications** (APNs) | No | Yes |
 | iCloud, Sign in with Apple, Associated Domains (passkeys, universal links) | No | Yes |

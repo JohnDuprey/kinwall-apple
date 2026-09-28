@@ -25,6 +25,11 @@ const save = (s: Store, c: Connection | null) =>
 
 export const widgetConnection = () => load(WIDGETS)
 
+/** iOS: a paired device's own sign-in, for the share extension to import a recipe with (an OAuth
+ * sign-in shares its tokens instead, src/oauth.ts). Null clears it. */
+export const shareKey = (c: Connection | null) =>
+  KinwallNative?.keychainSet('family.kinwall.share', true, c && JSON.stringify(c)).catch(() => {})
+
 /** Once the page is signed in, make sure the widgets have their key for this server. */
 export async function ensureWidgetKey(baseURL: string, key: string): Promise<void> {
   if ((await load(WIDGETS))?.baseURL === baseURL) return

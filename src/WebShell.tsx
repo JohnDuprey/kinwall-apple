@@ -10,7 +10,7 @@ import type { Tokens } from './oauth'
 import { refreshReminders, requestPermission } from './reminders'
 import { useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
-import { ensureWidgetKey, syncWatch, widgetConnection } from './sharedKey'
+import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
@@ -139,6 +139,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
         onSignedOut(); break
       case 'key':
         if (!m.key) return
+        if (session.mode === 'paired') await shareKey({ baseURL: url, key: m.key })
         await ensureWidgetKey(url, m.key)
         reloadWidgets()
         await requestPermission() // first time signed in: ask, then schedule

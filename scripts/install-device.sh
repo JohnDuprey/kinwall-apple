@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 # Builds Kinwall for a paired iPhone or iPad (cable or Wi-Fi) and installs it (a Release build with the
 # JavaScript bundled in, so it runs without Metro; CONFIG=Debug for one that loads from `npx expo start`. Signed through
 # the Apple account in Xcode → Settings → Accounts, which also registers the device; the profile
 # lasts a year on a paid team). The Watch app is embedded; the iPhone's Watch app installs it.
 #   TEAM=ABCDE12345 scripts/install-device.sh            # the only connected device
 #   TEAM=ABCDE12345 DEVICE=<udid> scripts/install-device.sh
-set -eu
+set -euo pipefail
 : "${TEAM:?Set TEAM to your Apple Developer team ID (developer.apple.com → Membership)}"
 cd "$(dirname "$0")/.."
 OUT="${OUT:-/tmp/kinwall-device}"   # outside ~/Documents: codesign trips over Finder metadata there

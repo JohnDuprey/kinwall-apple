@@ -1,10 +1,10 @@
 // iOS native targets, on top of @bacons/apple-targets (which turns targets/* into the widget,
-// Watch and complication targets): links the KinwallKit Swift package to every target, and
+// Watch, complication and share targets): links the KinwallKit Swift package to every target, and
 // compiles native/ios (Siri App Intents) into the app itself, where AppShortcutsProvider has to live.
 const { withXcodeProjectBeta } = require('@bacons/apple-targets/build/with-bacons-xcode')
 const withTargets = require('@bacons/apple-targets/app.plugin')
 const { PBXBuildFile, PBXFileReference, PBXNativeTarget, XCLocalSwiftPackageReference, XCSwiftPackageProductDependency } = require('@bacons/xcode')
-const { withAppDelegate, withDangerousMod, withEntitlementsPlist, withInfoPlist, withXcodeProject } = require('expo/config-plugins')
+const { AndroidConfig, withAndroidManifest, withAppDelegate, withDangerousMod, withEntitlementsPlist, withInfoPlist, withMainActivity, withXcodeProject } = require('expo/config-plugins')
 const fs = require('fs')
 const path = require('path')
 
@@ -96,5 +96,45 @@ const withSceneLifecycle = (config) => {
   })
 }
 
+// Android's share sheet: "Kinwall" takes shared text (a browser shares a page as its link), and
+// MainActivity turns it into the app link the JavaScript already routes (src/App.tsx routeFor),
+// family.kinwall.app:/open?to=recipes/import&url=<first link in the text>, before React Native
+// reads the intent. The iOS equivalent is targets/share.
+const SHARE_KOTLIN = String.raw`
+  // A shared link (ACTION_SEND text) becomes family.kinwall.app:/open?to=recipes/import&url=<link>.
+  private fun shareToLink(intent: Intent?) {
+    if (intent?.action != Intent.ACTION_SEND) return
+    val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+    val link = Regex("https?://[^\\s<>\"]+").find(text)?.value?.trimEnd('.', ',', ')', '!', '?', ';', ':', '\'', '"') ?: return
+    intent.action = Intent.ACTION_VIEW
+    intent.data = Uri.parse("family.kinwall.app:/open?to=recipes%2Fimport&url=" + Uri.encode(link))
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    shareToLink(intent)
+    super.onNewIntent(intent)
+  }
+`
+const withShareIntent = (config) => {
+  config = withAndroidManifest(config, (c) => {
+    const activity = AndroidConfig.Manifest.getMainActivityOrThrow(c.modResults)
+    const filters = (activity['intent-filter'] ??= [])
+    if (!filters.some((f) => f.action?.some((a) => a.$['android:name'] === 'android.intent.action.SEND'))) {
+      filters.push({ action: [{ $: { 'android:name': 'android.intent.action.SEND' } }], category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }], data: [{ $: { 'android:mimeType': 'text/plain' } }] })
+    }
+    return c
+  })
+  return withMainActivity(config, (c) => {
+    let src = c.modResults.contents
+    if (src.includes('shareToLink')) return c
+    if (c.modResults.language !== 'kt' || !src.includes('super.onCreate(')) throw new Error('withShareIntent: the MainActivity template changed; update the patch')
+    src = src.replace(/\nimport android\.os\.Bundle\n/, '\nimport android.content.Intent\nimport android.net.Uri\nimport android.os.Bundle\n')
+    src = src.replace(/(\n\s*)super\.onCreate\(/, '$1shareToLink(intent)$1super.onCreate(')
+    src = src.replace(/\n}\s*$/, `\n${SHARE_KOTLIN}}\n`)
+    c.modResults.contents = src
+    return c
+  })
+}
+
 // Mods run newest-first, so register ours before apple-targets' and it runs once the targets exist.
-module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withSceneLifecycle(withSpacesInPath(config)))), {})
+module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withSceneLifecycle(withSpacesInPath(withShareIntent(config))))), {})

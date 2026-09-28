@@ -29,7 +29,8 @@ export default function App() {
   useEffect(() => { loadServer().then(async (s) => { setSession(s ? await loadSession(s) : null); setServer(s) }) }, [])
 
   // Widget links: family.kinwall.app:/open?to=chores (or calendar, lists), plus &done=<chore id>
-  // to tap that chore in the web app (it asks "Who did it?" or opens the checklist).
+  // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
+  // recipe links (to=recipes/import&url=…), which open the web app's recipe import.
   useEffect(() => { if (url) { const r = routeFor(url); if (r) setRoute(r) } }, [url])
   // A tapped reminder opens its event.
   useEffect(() => {
@@ -60,12 +61,18 @@ export default function App() {
   )
 }
 
-/** family.kinwall.app:/open?to=chores&done=abc → "chores?done=abc"; anything else → null. */
+/** family.kinwall.app:/open?to=chores&done=abc → "chores?done=abc"; a shared recipe page,
+ * ?to=recipes/import&url=<page> (from an Android share) →
+ * "recipes/import?url=<page>"; anything else → null. */
 export function routeFor(link: string): string | null {
   const m = /^family\.kinwall\.app:\/*open\?(.*)$/.exec(link)
   if (!m) return null
   const q = new URLSearchParams(m[1])
-  const to = q.get('to')
+  const to = q.get('to')?.replace(/^\//, '')
+  if (to === 'recipes/import') {
+    const page = q.get('url')
+    return page && /^https?:\/\/[^\s]+$/i.test(page) && page.length <= 2000 ? `recipes/import?url=${encodeURIComponent(page)}` : null
+  }
   if (!to || !['calendar', 'chores', 'lists'].includes(to)) return null
   const done = q.get('done')
   // The id lands in page script, so only plain id characters pass.

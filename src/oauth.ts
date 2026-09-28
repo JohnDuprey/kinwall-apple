@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
+import KinwallNative from '../modules/kinwall-native'
 
 // Signing in with Kinwall's OAuth (the same authorization server MCP clients use): the app
 // registers itself, opens the consent screen in the system's auth sheet (where passkeys work on
@@ -58,8 +59,22 @@ export async function revoke(t: Tokens) {
   await fetch(new URL('oauth/revoke', t.baseURL).toString(), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form({ token: t.refreshToken, client_id: t.clientId }) }).catch(() => {})
 }
 
-// The tokens, in the keychain / keystore.
+// The tokens, in the keychain / keystore. iOS keeps them in the shared Keychain group, where the
+// share extension (targets/share) reads them to import a recipe, refreshing and saving them back.
+// Earlier builds kept them in SecureStore; the first load moves them.
 const STORE = { keychainService: 'family.kinwall.oauth', keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK }
-export const loadTokens = async (): Promise<Tokens | null> => { const s = await SecureStore.getItemAsync('household', STORE); return s ? (JSON.parse(s) as Tokens) : null }
-export const saveTokens = (t: Tokens) => SecureStore.setItemAsync('household', JSON.stringify(t), STORE)
-export const clearTokens = () => SecureStore.deleteItemAsync('household', STORE)
+const SHARED = 'family.kinwall.oauth'
+export async function loadTokens(): Promise<Tokens | null> {
+  let s = KinwallNative ? await KinwallNative.keychainGet(SHARED, true).catch(() => null) : null
+  if (!s && (s = await SecureStore.getItemAsync('household', STORE)) && KinwallNative) {
+    await KinwallNative.keychainSet(SHARED, true, s)
+    await SecureStore.deleteItemAsync('household', STORE)
+  }
+  return s ? (JSON.parse(s) as Tokens) : null
+}
+export const saveTokens = (t: Tokens) =>
+  KinwallNative ? KinwallNative.keychainSet(SHARED, true, JSON.stringify(t)) : SecureStore.setItemAsync('household', JSON.stringify(t), STORE)
+export async function clearTokens() {
+  await KinwallNative?.keychainSet(SHARED, true, null)
+  await SecureStore.deleteItemAsync('household', STORE)
+}

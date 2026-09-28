@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store'
 import { type Tokens, clearTokens, loadTokens, refresh, revoke, saveTokens, OAuthError } from './oauth'
 import { clearReminders } from './reminders'
-import { revokeWidgetKey, watchSignOut } from './sharedKey'
+import { revokeWidgetKey, shareKey, watchSignOut } from './sharedKey'
 import { reloadWidgets } from './widgets'
 
 // How this device is signed in to the household: OAuth tokens (kept fresh here), or a paired
@@ -37,8 +37,15 @@ let refreshing: Promise<Tokens | null> | null = null
 export function freshTokens(t: Tokens): Promise<Tokens | null> {
   if (!needsRefresh(t)) return Promise.resolve(t)
   if (refreshing) return refreshing // one refresh at a time: refresh tokens rotate
-  refreshing = refresh(t)
-    .then(async (next) => { await saveTokens(next); return next })
+  refreshing = (async () => {
+    // The share extension may have refreshed them since (refresh tokens rotate): start from the saved ones.
+    const saved = await loadTokens()
+    const cur = saved?.baseURL === t.baseURL ? saved : t
+    if (!needsRefresh(cur)) return cur
+    const next = await refresh(cur)
+    await saveTokens(next)
+    return next
+  })()
     .catch((e: unknown) => (e instanceof OAuthError && e.needsSignIn ? null : t)) // offline: keep the old one and try again later
     .finally(() => { refreshing = null })
   return refreshing
@@ -48,6 +55,7 @@ export function freshTokens(t: Tokens): Promise<Tokens | null> {
 export async function signOut(session: Session): Promise<void> {
   if (session?.mode === 'oauth') await revoke(session.tokens)
   await clearTokens()
+  await shareKey(null)
   await revokeWidgetKey()
   await clearReminders()
   await watchSignOut()

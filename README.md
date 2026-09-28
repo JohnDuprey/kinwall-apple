@@ -15,6 +15,7 @@ The phone and tablet app is one [Expo](https://expo.dev) (React Native) app for 
 | `native/ios/` | Swift compiled into the iOS app itself (Siri and Shortcuts App Intents) |
 | `targets/widgets/` | WidgetKit extension (Home Screen, Lock Screen, StandBy) |
 | `targets/watch/`, `targets/watch-widgets/` | The Apple Watch app and its complications |
+| `targets/share/` | Share extension: **Kinwall** in the iOS share sheet, for importing a recipe link |
 | `KinwallKit/` | Swift package shared by every native target: API client, models, pairing, Keychain storage. No UI. |
 | `scripts/` | Build and install on a device, TestFlight upload |
 
@@ -49,6 +50,13 @@ JDK 17 and the Android SDK (Android Studio installs both; set `ANDROID_HOME`), t
 npx expo prebuild -p android --clean
 npx expo run:android            # an emulator or a connected device
 ```
+
+## Sharing a recipe link to Kinwall
+
+A recipe page can be shared to Kinwall from Safari, Chrome or any app with a Share button (see Kinwall's [Meals docs](https://github.com/JohnDuprey/kinwall/blob/main/docs/using/meals.md#sharing-from-your-phone)).
+
+- **iOS:** a share extension (`targets/share/`, added by `@bacons/apple-targets`) accepts one web link, or text with a link in it, and imports the recipe itself: it reads the page through the family's server (`POST api/recipes/import-url`) and shows what it found (photo, name, times, anything to check, ingredients, steps). **Import** saves it (`save: true`; "Updated" for a page imported before), **Cancel** doesn't. No app switch. It signs in with what the app keeps in the shared Keychain group `family.kinwall.shared`, the same group the widgets use: the OAuth tokens (`src/oauth.ts`; the extension refreshes them when they're about to lapse and saves the new ones back, and the app re-reads them before its own refresh), or on a paired device the page's key (`src/sharedKey.ts`, `family.kinwall.share`). Sign-out clears both. Importing needs full access: on a kid's phone or a wall device it says "Ask a grown-up to import this recipe". Keychain sharing is available to a free Personal Team (unlike App Groups); the extension is one more App ID, `family.kinwall.app.share`, toward a free team's limit. If Kinwall isn't in the share sheet's row, tap **More** and turn it on.
+- **Android:** the app opens on the web app's **Import from a link** sheet with the link filled in. `plugins/withKinwallNative.js` adds an `ACTION_SEND` `text/plain` intent filter to the main activity, and `MainActivity` rewrites a shared text's first link into the app link `family.kinwall.app:/open?to=recipes/import&url=<the page, percent-encoded>` (which `routeFor` in `src/App.tsx` sends to the web app as `#/recipes/import?url=…`) before React Native reads the intent (on launch and when the app is already open).
 
 ## Test the shared core
 
