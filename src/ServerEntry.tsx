@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput } from 'react-native'
 import { isKinwall } from './api'
 import { normalizeServer } from './server'
 import { useUi } from './theme'
@@ -25,7 +25,8 @@ export function ServerEntry({ onConnect, onDemo }: { onConnect: (url: string) =>
   }
 
   return (
-    <View style={ui.screen}>
+    // Centered in the space above the keyboard, so Try the demo stays in view while typing.
+    <KeyboardAvoidingView style={ui.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Text style={ui.title}>Welcome to Kinwall</Text>
       <Text style={ui.muted}>Enter your family's Kinwall address. For hosted Kinwall, your family name is enough.</Text>
       <TextInput style={ui.input} placeholder="ourfamily or kinwall.example.com" placeholderTextColor={ui.c.dim} value={address}
@@ -35,11 +36,11 @@ export function ServerEntry({ onConnect, onDemo }: { onConnect: (url: string) =>
       <Pressable style={[ui.button, !address.trim() && ui.disabled]} onPress={connect} disabled={checking || !address.trim()}>
         {checking ? <ActivityIndicator color={ui.c.ink} /> : <Text style={[ui.buttonText, !address.trim() && ui.disabledText]}>Connect</Text>}
       </Pressable>
-      <Text style={[ui.muted, ui.footnote]}>You'll sign in on the next screen. An admin approves this device in Kinwall under Settings → Access.</Text>
-      <Pressable onPress={onDemo} accessibilityRole="button" accessibilityHint="Opens Kinwall with a sample family. Nothing is saved.">
+      <Pressable onPress={onDemo} hitSlop={12} accessibilityRole="button" accessibilityHint="Opens Kinwall with a sample family. Nothing is saved.">
         <Text style={ui.link}>Try the demo</Text>
       </Pressable>
       <Text style={[ui.muted, ui.footnote]}>A sample family to look around in. Nothing is saved.</Text>
-    </View>
+      <Text style={[ui.muted, ui.footnote]}>You'll sign in on the next screen. An admin approves this device in Kinwall under Settings → Access.</Text>
+    </KeyboardAvoidingView>
   )
 }
