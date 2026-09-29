@@ -23,6 +23,8 @@ export function routeFor(link: string): string | null {
     const store = q.get('store')?.trim()
     return store && store.length <= 100 ? `${to}?store=${encodeURIComponent(store)}` : to
   }
+  // The check-in widget's "Goal for today?": their check-in on the calendar (the web app opens it once it reads ?checkin=).
+  if (to === 'checkin') { const m = id(q.get('member')); return m ? `calendar?checkin=${m}` : 'calendar' }
   if (to === 'night') return 'night' // the night screen (WebShell sends the 🌙 button's event)
   if (to === 'lists') { const l = id(q.get('list')); return l ? `lists?list=${l}` : 'lists' }
   // Spotlight: a recipe or a contact (src/spotlight.ts).

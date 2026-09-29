@@ -29,3 +29,8 @@ test('routeFor: Spotlight opens a recipe, a list or a contact', () => {
   assert.equal(routeFor('family.kinwall.app:/open?to=contacts'), 'contacts')
   assert.equal(routeFor('family.kinwall.app:/open?to=meals&recipe=%3Cx%3E'), 'meals')
 })
+
+test('routeFor: the check-in widget opens that person\'s check-in', () => {
+  assert.equal(routeFor('family.kinwall.app:/open?to=checkin&member=m3'), 'calendar?checkin=m3')
+  assert.equal(routeFor('family.kinwall.app:/open?to=checkin&member=%3C'), 'calendar')
+})

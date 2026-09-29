@@ -18,6 +18,7 @@ struct KinwallWidgets: WidgetBundle {
         TakeNowWidget()
         StandByClockWidget()
         KinwallLiveActivity()
+        KinwallHealthWidgets().body
         if #available(iOS 18.0, *) { KinwallControls().body }
     }
 }

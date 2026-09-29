@@ -103,5 +103,7 @@ private func ev(_ id: String, _ title: String, _ start: String, _ end: String, a
         let doses = DemoFamily.dueDoses()
         #expect(doses.doses.count == 2 && !doses.names && doses.doses.allSatisfy { $0.name == nil })
         #expect(TodaySummary(board: DemoFamily.board()).choresLeft == 4)
+        #expect(DemoFamily.tempCheck().step == .sleep)
+        #expect(DemoFamily.battery().summary?.line == "62% · Good by this evening")
     }
 }

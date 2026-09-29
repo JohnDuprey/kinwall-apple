@@ -65,5 +65,30 @@ public enum DemoFamily {
         ])
     }
 
+    /// The demo's check-in and battery are Maya's (m3), as if on her own phone.
+    public static let checkInPerson = "m3"
+
+    /// Maya's check-in this morning: nothing answered yet (the demo's widgets open the app to answer).
+    public static func tempCheck(now: Date = .now) -> TempCheck {
+        let day = HouseholdDate.key(for: now, timezone: nil)
+        return decode("""
+        {"memberId":"m3","date":"\(day)","settings":{"on":true,"sleep":true,"feelings":true,"goal":true,"evening":true,"eveningTime":"21:00","battery":true},
+         "private":false,"goal":null,"followupOpen":false,"drainedOpen":false,"custom":[],
+         "answered":{"sleep":false,"feelings":false,"goal":false,"followup":false,"drained":false}}
+        """)
+    }
+
+    /// Maya's energy battery today and tomorrow (the web demo's, web/src/mock-insights.ts).
+    public static func battery(now: Date = .now) -> Battery {
+        let today = HouseholdDate.key(for: now, timezone: nil)
+        let tomorrow = HouseholdDate.key(for: now.addingTimeInterval(86_400), timezone: nil)
+        return decode("""
+        {"on":true,"today":"\(today)","days":[
+          {"date":"\(today)","forecast":false,"level":62,"reasons":[{"text":"Sleep: good","points":75},{"text":"1 event","points":-10},{"text":"Chores: 15 points","points":-8}]},
+          {"date":"\(tomorrow)","forecast":true,"level":20,"reasons":[{"text":"5 events","points":-50}]}],
+         "warnings":[{"date":"\(tomorrow)","text":"Tomorrow looks full: 5 events, 2 chores and a late evening."}]}
+        """)
+    }
+
     private static func decode<T: Decodable>(_ json: String) -> T { try! JSONDecoder().decode(T.self, from: Data(json.utf8)) }
 }
