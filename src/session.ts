@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store'
 import { type Tokens, clearTokens, loadTokens, refresh, revoke, saveTokens, OAuthError } from './oauth'
 import { clearReminders } from './reminders'
 import { revokeWidgetKey, shareKey, watchSignOut } from './sharedKey'
+import { clearAppearance } from './theme'
 import { reloadWidgets } from './widgets'
 
 // How this device is signed in to the household: OAuth tokens (kept fresh here), or a paired
@@ -60,5 +61,6 @@ export async function signOut(session: Session): Promise<void> {
   await clearReminders()
   await watchSignOut()
   await SecureStore.deleteItemAsync(PAIRED)
+  await clearAppearance() // the next family starts from the app's own colors
   reloadWidgets()
 }

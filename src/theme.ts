@@ -1,5 +1,8 @@
+import * as SecureStore from 'expo-secure-store'
+import * as SplashScreen from 'expo-splash-screen'
 import { useMemo } from 'react'
 import { StyleSheet, useColorScheme } from 'react-native'
+import { type Appearance, parseAppearance } from './appearance'
 
 // The native screens (address, sign-in, can't reach) in Kinwall's own colors, light and dark, the
 // same tokens the web app's default scheme uses, so the frame matches what loads inside it.
@@ -31,3 +34,16 @@ export function useUi() {
   const dark = useColorScheme() === 'dark'
   return useMemo(() => ({ ...(dark ? STYLES.dark : STYLES.light), c: dark ? DARK : LIGHT, dark }), [dark])
 }
+
+// The page's last look (src/appearance.ts), read synchronously so the first frame already has it.
+// Kept beside the server address; cleared on sign-out, never saved from the demo.
+const SAVED = 'appearance'
+export function savedAppearance(): Appearance | null {
+  try { return parseAppearance(SecureStore.getItem(SAVED)) } catch { return null }
+}
+export const saveAppearance = (a: Appearance) => SecureStore.setItemAsync(SAVED, JSON.stringify(a)).catch(() => {})
+export const clearAppearance = () => SecureStore.deleteItemAsync(SAVED).catch(() => {})
+
+/** The launch screen stays up (App.tsx) until what's under it is painted: a native screen, or the
+ * page's first frame. Safe to call more than once. */
+export const hideSplash = () => { SplashScreen.hideAsync().catch(() => {}) }

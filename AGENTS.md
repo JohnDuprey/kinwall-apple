@@ -10,11 +10,12 @@ plus native widgets, a Watch app and a share extension. See [README.md](README.m
 
 ```bash
 npx tsc --noEmit
+npm test                           # node:test, test/*.test.ts
 CI=1 npx expo prebuild --clean     # must apply; delete the generated ios/ and android/ afterward
 ```
 Swift in `targets/` and `native/` is type-checked against the iOS simulator SDK
 (`xcrun swiftc -typecheck -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) …`). Pure logic in
-`src/` (routing, parsing) gets a `node:test` test when you change it.
+`src/` (routing, parsing) gets a `node:test` test in `test/` when you change it.
 
 ## Rules
 

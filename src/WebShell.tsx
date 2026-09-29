@@ -3,12 +3,13 @@ import Constants from 'expo-constants'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useRef, useState } from 'react'
-import { AppState, BackHandler, Dimensions, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { AppState, BackHandler, Dimensions, Linking, Platform, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { Tokens } from './oauth'
 import { refreshReminders, requestPermission } from './reminders'
-import { useUi } from './theme'
+import { type Surface, frameColors, parseAppearance } from './appearance'
+import { hideSplash, saveAppearance, savedAppearance, useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
@@ -27,10 +28,14 @@ const VERSION = Constants.expoConfig?.version ?? '0'
 
 /** Read by the web app to adapt (hide the Add to Home Screen card and web push, which don't
  * apply inside the app). Keep in sync with web/src/native.ts in the kinwall repo, which posts to
- * webkit.messageHandlers.kinwall: that's shimmed onto the WebView's own channel here. */
-const bridge = (token: string | null) => `
+ * webkit.messageHandlers.kinwall: that's shimmed onto the WebView's own channel here.
+ * `frame`: the family's last colors (src/appearance.ts), put on <html> before anything paints so
+ * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
+ * its settings load (web/src/useTheme.ts). */
+const bridge = (token: string | null, frame: (Surface & { dark: boolean }) | null) => `
 window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)} };
 ${token ? `try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
+${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
   var post = function (m) { window.ReactNativeWebView.postMessage(JSON.stringify(m)) };
   var kinwall = { postMessage: post };
@@ -66,15 +71,22 @@ type Props = {
  * the browser, follows the page's theme color, and hands the paired key to the widgets, Watch and Siri. */
 export function WebShell({ url, session, route, onRouteApplied, onTokens, onSignedOut, onChangeServer }: Props) {
   const web = useRef<WebView>(null)
-  const [theme, setTheme] = useState('#ffffff')
-  const [failed, setFailed] = useState<string | null>(null)
   const ui = useUi()
+  // The family's colors from last time (never the demo's), so the frame starts in them; updated
+  // live from the page. `theme` is the older servers' meta theme-color, used until then.
+  const [look, setLook] = useState(() => (session.mode === 'demo' ? null : savedAppearance()))
+  const frame = frameColors(look, useColorScheme() === 'dark')
+  const [theme, setTheme] = useState<string | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [startsPairing, setStartsPairing] = useState<boolean | null>(null)
   const pending = useRef<string | null>(null)
   const canGoBack = useRef(false)
   const host = new URL(url).host
   const token = session.mode === 'oauth' ? session.tokens.accessToken : null
+
+  // The launch screen waits for the page (onLoadEnd, its look, or a failed load), but not forever.
+  useEffect(() => { const t = setTimeout(hideSplash, 3000); return () => clearTimeout(t) }, [])
 
   // A wall tablet stays awake; a phone sleeps as usual.
   useEffect(() => {
@@ -127,6 +139,12 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     try { m = JSON.parse(e.nativeEvent.data) } catch { return }
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
+      case 'appearance': { // web/src/native.ts: the page's look changed
+        const a = parseAppearance(m)
+        if (a) { setLook(a); if (session.mode !== 'demo') saveAppearance(a) }
+        hideSplash()
+        break
+      }
       case 'signedIn': syncKey(); break
       // Shopping mode (web/src/native.ts) keeps the screen on while you shop.
       case 'leaveDemo': if (session.mode === 'demo') onChangeServer(); break // web/src/native.ts: the demo bar's Leave demo
@@ -150,7 +168,8 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     }
   }
 
-  const dark = isDark(theme)
+  const bg = frame?.bg ?? theme ?? ui.c.bg
+  const dark = frame ? frame.dark : theme ? isDark(theme) : ui.dark
   const view = failed ? (
     <View style={ui.root}><View style={ui.screen}>
       <Text style={ui.title}>Can't reach Kinwall</Text>
@@ -164,12 +183,12 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       style={styles.web}
       source={{ uri: startsPairing ? `${url}?start=pair` : url }}
       applicationNameForUserAgent={`KinwallApp/${VERSION}`}
-      injectedJavaScriptBeforeContentLoaded={bridge(token)}
+      injectedJavaScriptBeforeContentLoaded={bridge(token, frame)}
       onMessage={onMessage}
       onLoadStart={() => setLoading(true)}
-      onLoadEnd={() => { setLoading(false); syncKey(); if (pending.current) { go(pending.current); pending.current = null } }}
+      onLoadEnd={() => { hideSplash(); setLoading(false); syncKey(); if (pending.current) { go(pending.current); pending.current = null } }}
       onNavigationStateChange={(s) => { canGoBack.current = s.canGoBack }}
-      onError={(e) => setFailed(e.nativeEvent.description)}
+      onError={(e) => { hideSplash(); setFailed(e.nativeEvent.description) }}
       // Other sites open outside the app (openOutside); Kinwall stays here.
       onShouldStartLoadWithRequest={(r) => {
         if (isKinwall(r.url) || r.url.startsWith('about:') || r.url.startsWith('blob:')) return true
@@ -192,12 +211,12 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   // iOS: the page uses the full screen and drops its status-bar gap in the app (data-native).
   // Android: the page starts under the status bar; the insets are painted in the page's color.
   return Platform.OS === 'ios' ? (
-    <View style={[styles.root, { backgroundColor: theme }]}>
+    <View style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar hidden style={dark ? 'light' : 'dark'} />
       {view}
     </View>
   ) : (
-    <SafeAreaView style={[styles.root, { backgroundColor: theme }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       {view}
     </SafeAreaView>
