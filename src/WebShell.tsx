@@ -16,6 +16,7 @@ import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
 import { syncSpotlight } from './spotlight'
+import KinwallNative from '../modules/kinwall-native'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
@@ -203,6 +204,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
 
   const bg = frame?.bg ?? theme ?? ui.c.bg
   const dark = frame ? frame.dark : theme ? isDark(theme) : ui.dark
+  useEffect(() => { if (Platform.OS === 'android') KinwallNative?.navigationBar(dark) }, [dark])
   const view = failed ? (
     <View style={ui.root}><View style={ui.screen}>
       <Text style={ui.title}>Can't reach Kinwall</Text>

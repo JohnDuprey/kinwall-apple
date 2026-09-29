@@ -20,6 +20,8 @@ type KinwallNative = {
   takeLink?(): string | null
   /** Android: the next day's leave-by alarms (src/leaveBy.ts), replacing the last ones. */
   leaveBySchedule(alarms: string): Promise<void>
+  /** Android: the navigation bar's buttons light (on a dark page) or dark. */
+  navigationBar(dark: boolean): void
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription
   /** iOS: takeLink() has one. */
   addListener(event: 'link', listener: () => void): EventSubscription
