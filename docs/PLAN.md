@@ -109,6 +109,25 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 ### M8: Wear OS (later)
 - A watch app like the Apple Watch one: Now/Next, my chores, Groceries, and tiles and complications. Native Kotlin (Compose for Wear OS), with the key handed over from the phone app over the Wearable Data Layer.
 
+### M9: Apple Health (later, stretch)
+
+Opt-in, off by default: a family setting ("Let the app sync with Apple Health", like the AI
+health-access switch) plus iOS's own per-type Health permission sheet on each device. Only the
+device owner's data: Health is per iPhone owner, so a shared wall or a parent's phone never
+writes a kid's data into the parent's Health; a kid's own iPhone can sync the kid's.
+
+1. Read sleep duration (from a watch or other source) to pre-fill the morning check-in ("You slept
+   6 h 10 min. How did it feel?") and give the Energy battery real hours alongside the rating.
+2. Write Temp check feelings as State of Mind entries (iOS 17+; valence plus labels such as happy,
+   tired, stressed).
+3. Write Health tracker measurements (height, weight, temperature) as Health quantities.
+4. Maybe: steps or exercise minutes as battery drain on physically heavy days.
+
+Not a fit: sleep quality ratings (Health stores only times and stages), vaccines and visit records
+(clinical records are read-only for apps), medications (verify what apps can read or write before
+promising anything). App Review: privacy policy covering Health, no ads or third-party sharing,
+purpose-limited use; confirm the free team can use HealthKit before building.
+
 ## Live Activities (built 2026-09-29)
 
 Three Live Activities: a cooking timer, a shopping trip (with **Got it** and **Open**) and the next leave-by or start-prep time. See [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md#live-activities). Everything the app starts itself works on a free Personal Team: ActivityKit and interactive App Intents need no capability, and **Got it** ticks the item with the widgets' key from the shared Keychain group, so it needs no App Group. The deployment target is iOS 17, so the < 16.1 and < 17 cases can't occur; push-to-start is checked for iOS 17.2.
