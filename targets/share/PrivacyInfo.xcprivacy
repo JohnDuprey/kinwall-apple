@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The share extension: no required-reason APIs. The data it reads and changes is the family's own, on their Kinwall server; the
+     app's manifest (app.json ios.privacyManifests) declares what that is. No tracking. -->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+	</array>
+</dict>
+</plist>
