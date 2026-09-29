@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- iPhone Settings → Kinwall: how to delete the family's account (App Store 5.1.1(v)). Accounts
+     are made on the family's Kinwall server, not in the app, so deleting one happens there too. -->
+<plist version="1.0">
+<dict>
+	<key>StringsTable</key>
+	<string>Root</string>
+	<key>PreferenceSpecifiers</key>
+	<array>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Deleting your family's account</string>
+			<key>FooterText</key>
+			<string>Hosted Kinwall: in Kinwall, open Settings → Access → Your data → Manage or delete this family. Your own server: your family's data lives there, so you delete it there (docs.kinwall.family, Deleting everything). Signing out of this app only removes this iPhone's sign-in.</string>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -59,6 +59,10 @@ const withKinwallKit = (config) =>
       target.getSourcesBuildPhase().ensureFile({ fileRef: ref })
     }
     for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.swift'))) addFile(app, `native/ios/${file}`)
+    // iPhone Settings → Kinwall: how to delete the family's account (native/ios/Settings.bundle).
+    const settings = PBXFileReference.create(project, { path: '../native/ios/Settings.bundle', sourceTree: 'SOURCE_ROOT', lastKnownFileType: 'wrapper.plug-in' })
+    root.props.mainGroup.props.children.push(settings)
+    app.getResourcesBuildPhase().ensureFile({ fileRef: settings })
     // The Live Activities: the widget extension draws what the app's native module starts, so it
     // compiles the module's attributes too (ActivityKit matches them by name), and Got it's intent.
     const widgets = root.props.targets.find((t) => PBXNativeTarget.is(t) && t.props.productName === 'KinwallWidgets')
