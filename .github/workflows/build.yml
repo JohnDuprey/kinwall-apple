@@ -79,7 +79,7 @@ jobs:
           "$apksigner" verify "out/$NAME.apk"
           rm "$RUNNER_TEMP/throwaway.jks"
       - uses: actions/upload-artifact@v4
-        with: { name: android, path: out/, if-no-files-found: error }
+        with: { name: '${{ env.NAME }}', path: out/, if-no-files-found: error }
 
   ios:
     needs: version
@@ -131,9 +131,9 @@ jobs:
           xcodebuild build -quiet -workspace ios/Kinwall.xcworkspace -scheme Kinwall -configuration Release \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-          (cd "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" && ditto -c -k --keepParent Kinwall.app "$GITHUB_WORKSPACE/out/$NAME-simulator.zip")
+          (cd "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" && ditto -c -k --keepParent Kinwall.app "$GITHUB_WORKSPACE/out/$NAME-simulator.app.zip")
       - uses: actions/upload-artifact@v4
-        with: { name: ios, path: out/, if-no-files-found: error }
+        with: { name: '${{ env.NAME }}', path: out/, if-no-files-found: error }
 
   release:
     needs: [version, android, ios]
@@ -165,7 +165,7 @@ jobs:
           - **kinwall-$V-android.apk**: Android phones and tablets. Open it on the device and allow installing from your browser or file manager when asked. It's signed with a key made for this build only, so it can't update, or be updated by, any other build: an earlier release, your own build, or a future Play Store version. Uninstall the old one first, then sign in again.
           - **kinwall-$V-android-unsigned.apk**: the same build, unsigned, to sign with your own key (\`apksigner\`). Android won't install it as is.
           - **kinwall-$V-ios-unsigned.ipa**: iPhone and iPad, with the widgets, the share extension and the Watch app inside. It won't install until it's signed: sign it (and the extensions inside) with your own Apple ID in a re-signing tool, or build from source with Xcode (README). A free Apple ID's signature lasts 7 days. Push notifications and Live Activity push don't work in these builds; the Live Activities the app starts itself do.
-          - **kinwall-$V-ios-simulator.zip**: for the iOS Simulator in Xcode. Unzip it, then \`xcrun simctl install booted Kinwall.app\`.
+          - **kinwall-$V-ios-simulator.app.zip**: for the iOS Simulator in Xcode. Unzip it, then \`xcrun simctl install booted Kinwall.app\`.
           - **SHA256SUMS.txt**: checksums, for \`sha256sum -c SHA256SUMS.txt\`.
           NOTES
           gh release edit "$TAG" --notes-file notes.md
