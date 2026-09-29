@@ -170,7 +170,7 @@ struct ClockProvider: TimelineProvider {
 struct StandByClockWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "StandByClock", provider: ClockProvider()) { entry in
-            StandByClockView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
+            StandByClockView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Clock & next")
         .description("A big clock and what's next. Made for StandBy.")
