@@ -2,7 +2,7 @@ import ActivityKit
 import Foundation
 
 /// The app's Live Activities (a cooking timer, a shopping trip, the next leave-by or start-prep
-/// time), started, updated and ended from the web app's messages (src/liveActivities.ts, and
+/// time, a medicine that's due), started, updated and ended from the web app's messages (src/liveActivities.ts, and
 /// web/src/liveActivity.ts in the kinwall repo, which decides what they say). One of each kind at a
 /// time. The deployment target is iOS 17, so ActivityKit and its interactive buttons are always
 /// there; Live Activities turned off in Settings make all of this a no-op.
@@ -74,13 +74,14 @@ enum LiveActivities {
     private static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
 
     private static func same(_ a: Attributes, _ b: Attributes) -> Bool {
-        a.kind == b.kind && a.name == b.name && a.listId == b.listId && a.eventId == b.eventId && a.activity == b.activity && a.colors == b.colors
+        a.kind == b.kind && a.name == b.name && a.listId == b.listId && a.eventId == b.eventId && a.activity == b.activity && a.colors == b.colors && a.dose == b.dose
     }
 
     // MARK: - The web app's payloads (web/src/liveActivity.ts)
 
     private struct Cooking: Decodable { let recipe: String; let timer: String; let step: String; let endsAt: Double; let done: Bool; let more: Int }
     private struct Shopping: Decodable { let listId: String; let store: String; let left: Int; let next: Attributes.Entry?; let upcoming: [Attributes.Entry] }
+    private struct Medication: Decodable { let medicationId: String; let date: String; let time: String; let memberName: String; let label: String; let windowEndsAt: String; let stage: String }
     private struct LeaveBy: Decodable { let activity: String; let eventId: String; let title: String; let prep: Bool; let at: String; let endsAt: String; let headline: String; let urgent: String }
 
     private static func date(_ iso: String) -> Date? {
@@ -104,6 +105,12 @@ enum LiveActivities {
             guard let at = date(p.at) else { return nil }
             let attributes = Attributes(kind: p.prep ? "prep" : "leave", name: p.title, eventId: p.eventId, activity: p.activity, endsAt: date(p.endsAt), colors: colors)
             return (attributes, .init(title: p.headline, detail: p.urgent, date: at), at)
+        case "medication":
+            // The label is the web app's own (generic unless the device opted into names): shown as is.
+            let p = try decoder.decode(Medication.self, from: data)
+            guard let until = date(p.windowEndsAt) else { return nil }
+            let attributes = Attributes(kind: "medication", name: p.label, endsAt: until, colors: colors, dose: .init(medicationId: p.medicationId, date: p.date, time: p.time))
+            return (attributes, .init(title: p.memberName, detail: p.stage, date: until), until)
         default:
             return nil
         }

@@ -5,8 +5,8 @@ import SwiftUI
 import WidgetKit
 
 // The Live Activities (modules/kinwall-native/ios/LiveActivities.swift starts them; the web app
-// decides what they say): a cooking timer, a shopping trip, and the next leave-by or start-prep
-// time, on the Lock Screen and in the Dynamic Island. Countdowns tick on their own
+// decides what they say): a cooking timer, a shopping trip, the next leave-by or start-prep
+// time, and a medicine that's due, on the Lock Screen and in the Dynamic Island. Countdowns tick on their own
 // (Text(timerInterval:)); when a timer or leave-by time passes, the activity goes stale and says
 // "Done" or "Leave now" without an update.
 
@@ -36,6 +36,7 @@ struct KinwallLiveActivity: Widget {
                         if context.attributes.kind == "shopping" { ShoppingLineView(context: context).font(.subheadline).foregroundStyle(.secondary) }
                         else if let line = context.islandLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
                         if context.attributes.kind == "shopping" { ShoppingButtons(context: context, onDark: true) }
+                        if context.attributes.kind == "medication" { Text(context.medicationLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1); DoseButtons(context: context, onDark: true) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
                 }
@@ -55,12 +56,12 @@ struct KinwallLiveActivity: Widget {
 // MARK: - Words
 
 extension KinwallActivityAttributes {
-    var icon: String { ["cooking": "⏲️", "shopping": "🛒", "leave": "🚗", "prep": "🍳"][kind] ?? "📅" }
+    var icon: String { ["cooking": "⏲️", "shopping": "🛒", "leave": "🚗", "prep": "🍳", "medication": "💊"][kind] ?? "📅" }
     /// Open: shopping mode for a trip, the calendar for a leave-by; the app as it was for cooking.
     var link: URL? {
         switch kind {
         case "shopping": listId.flatMap { URL(string: "family.kinwall.app:/open?to=lists/\($0)/shop") }
-        case "leave", "prep": URL(string: "family.kinwall.app:/open?to=calendar")
+        case "leave", "prep", "medication": URL(string: "family.kinwall.app:/open?to=calendar")
         default: nil
         }
     }
@@ -75,6 +76,7 @@ extension ActivityViewContext<KinwallActivityAttributes> {
         switch attributes.kind {
         case "cooking": due ? "Done: \(s.title)" : s.title
         case "shopping": s.count == 0 ? "All done at \(attributes.name)" : s.title.isEmpty ? "\(s.count) left" : s.title
+        case "medication": attributes.name // the web app's label, generic unless the device opted into names
         default: due ? (s.detail ?? "Time to go") : s.title
         }
     }
@@ -99,6 +101,16 @@ extension ActivityViewContext<KinwallActivityAttributes> {
     }
 
     var theme: ActivityTheme { ActivityTheme(attributes.colors) }
+
+    /// Kind words only, never "missed": "Due now · still time until 8:00 PM", "Snoozed · back at 7:40 PM".
+    var medicationLine: String {
+        let until = (attributes.endsAt ?? s.date).map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
+        switch s.detail {
+        case "snoozed": return "Snoozed · back at \((s.date ?? .now).formatted(date: .omitted, time: .shortened))"
+        case "late": return "Still time · until \(until)"
+        default: return "Due now · still time until \(until)"
+        }
+    }
 }
 
 /// The countdown, or what the activity counts.
@@ -133,6 +145,10 @@ struct LockScreenActivity: View {
                 ShoppingLineView(context: context).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75))
                 ShoppingButtons(context: context)
             }
+            if context.attributes.kind == "medication" {
+                Text(context.medicationLine).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(1)
+                DoseButtons(context: context)
+            }
         }
         .padding(16)
     }
@@ -144,6 +160,7 @@ struct LockScreenActivity: View {
         case "prep": context.due ? context.attributes.name : "\(context.attributes.name) · start prep in"
         // The count is on the right; where things are goes under the item (ShoppingLineView).
         case "shopping": context.attributes.name
+        case "medication": context.s.title.isEmpty ? "Medicine" : "For \(context.s.title)"
         default: context.subline
         }
     }
@@ -162,6 +179,27 @@ struct ShoppingLineView: View {
                 if !line.tail.isEmpty { Text(line.tail).layoutPriority(2) }
             }
             .lineLimit(1)
+        }
+    }
+}
+
+/// Taken and Snooze 10 min (MarkDoseActivityIntent, native/ios/LiveActivityIntents.swift).
+struct DoseButtons: View {
+    let context: ActivityViewContext<KinwallActivityAttributes>
+    var onDark = false
+    var body: some View {
+        if let dose = context.attributes.dose {
+            HStack(spacing: 10) {
+                Button(intent: MarkDoseActivityIntent(medicationId: dose.medicationId, date: dose.date, time: dose.time, action: "taken")) {
+                    Label("Taken", systemImage: "checkmark").frame(maxWidth: .infinity)
+                }
+                .tint(context.theme.accent)
+                Button(intent: MarkDoseActivityIntent(medicationId: dose.medicationId, date: dose.date, time: dose.time, action: "snooze")) {
+                    Label("Snooze 10 min", systemImage: "zzz").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered).tint(onDark ? .white : context.theme.fg)
+            }
+            .font(.subheadline.weight(.semibold))
         }
     }
 }

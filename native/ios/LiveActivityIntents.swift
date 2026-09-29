@@ -5,7 +5,7 @@ import KinwallKit
 internal import KinwallNative // the app: KinwallActivityAttributes comes from the native module
 #endif
 
-// "Got it" on the shopping trip's Live Activity (targets/widgets/LiveActivities.swift). Compiled into
+// "Got it" on the shopping trip's Live Activity, and Taken / Snooze on a medicine's (below) (targets/widgets/LiveActivities.swift). Compiled into
 // the app and the widget extension (plugins/withKinwallNative.js): the button needs the type there,
 // and iOS may run it in either process (in the iOS 27 Simulator it runs in the extension, which can
 // update the activity too), so both copies do the whole job.
@@ -46,4 +46,38 @@ struct GotItIntent: LiveActivityIntent {
 enum GotItError: Error, CustomLocalizedStringResourceConvertible {
     case signedOut
     var localizedStringResource: LocalizedStringResource { "Open Kinwall to sign in first." }
+}
+
+// Taken and Snooze on the medicine Live Activity (targets/widgets/LiveActivities.swift): the dose is
+// marked with the widgets' key, which belongs to the device's person, so the server lets a person's
+// own phone mark only theirs. Taken ends the activity; Snooze keeps it, saying when it's back.
+struct MarkDoseActivityIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Mark a dose"
+    static let isDiscoverable = false
+    @Parameter(title: "Medicine") var medicationId: String
+    @Parameter(title: "Date") var date: String
+    @Parameter(title: "Time") var time: String
+    @Parameter(title: "Action") var action: String
+    init() {}
+    init(medicationId: String, date: String, time: String, action: String) { self.medicationId = medicationId; self.date = date; self.time = time; self.action = action }
+
+    func perform() async throws -> some IntentResult {
+        if let connection = try? SharedKeychain.widgetStore.load() {
+            let dose = DueDose(medicationId: medicationId, memberId: "", date: date, time: time, dueAt: "", name: nil, dose: nil)
+            try await KinwallClient(connection).mark(dose, action == "snooze" ? .snooze : .taken)
+        } else if (try? SharedKeychain.demoStore.load()) == nil {
+            throw GotItError.signedOut
+        } // the demo: nothing to save
+        for activity in Activity<KinwallActivityAttributes>.activities where activity.attributes.dose == .init(medicationId: medicationId, date: date, time: time) {
+            if action == "snooze" {
+                var s = activity.content.state
+                s.detail = "snoozed"
+                s.date = .now.addingTimeInterval(10 * 60)
+                await activity.update(ActivityContent(state: s, staleDate: activity.attributes.endsAt))
+            } else {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+        return .result()
+    }
 }

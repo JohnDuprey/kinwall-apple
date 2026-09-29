@@ -10,10 +10,13 @@ import Foundation
 public struct KinwallActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         /// Cooking: the timer's name. Shopping: the item to get now ("" when all done). Leave / prep: the headline.
+        /// Medication: whose it is.
         public var title: String
         /// Cooking: "Step 3 · Simmer". Shopping: that item's aisle. Leave / prep: the "now" line.
+        /// Medication: "due" or "late" (still inside its window), or "snoozed".
         public var detail: String?
-        /// Cooking: when the timer's up. Leave / prep: the leave-by or start-prep time.
+        /// Cooking: when the timer's up. Leave / prep: the leave-by or start-prep time. Medication: the
+        /// end of its window (or, snoozed, when it's back).
         public var date: Date?
         /// Cooking: other timers running. Shopping: items left.
         public var count: Int
@@ -44,9 +47,18 @@ public struct KinwallActivityAttributes: ActivityAttributes {
         public init(bg: String, fg: String, accent: String) { self.bg = bg; self.fg = fg; self.accent = accent }
     }
 
-    /// "cooking", "shopping", "leave" or "prep".
+    /// Medication: the dose Taken and Snooze mark (POST /api/medications/{id}/doses).
+    public struct Dose: Codable, Hashable {
+        public var medicationId: String
+        public var date: String
+        public var time: String
+        public init(medicationId: String, date: String, time: String) { self.medicationId = medicationId; self.date = date; self.time = time }
+    }
+
+    /// "cooking", "shopping", "leave", "prep" or "medication".
     public var kind: String
-    /// The recipe, the store, or the event.
+    /// The recipe, the store, the event, or the medicine's label (the web app's, generic unless the
+    /// device opted into names).
     public var name: String
     public var listId: String?
     public var eventId: String?
@@ -55,8 +67,9 @@ public struct KinwallActivityAttributes: ActivityAttributes {
     /// Leave / prep: when it should go (the event's start, or a few minutes after the time).
     public var endsAt: Date?
     public var colors: Colors?
+    public var dose: Dose?
 
-    public init(kind: String, name: String, listId: String? = nil, eventId: String? = nil, activity: String? = nil, endsAt: Date? = nil, colors: Colors? = nil) {
-        self.kind = kind; self.name = name; self.listId = listId; self.eventId = eventId; self.activity = activity; self.endsAt = endsAt; self.colors = colors
+    public init(kind: String, name: String, listId: String? = nil, eventId: String? = nil, activity: String? = nil, endsAt: Date? = nil, colors: Colors? = nil, dose: Dose? = nil) {
+        self.kind = kind; self.name = name; self.listId = listId; self.eventId = eventId; self.activity = activity; self.endsAt = endsAt; self.colors = colors; self.dose = dose
     }
 }

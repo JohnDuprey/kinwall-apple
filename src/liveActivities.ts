@@ -6,7 +6,7 @@ import { api, type Connection } from './api'
 // (web/src/native.ts tellAppActivity in the kinwall repo) and WebShell hands it over here. No-ops
 // on Android, where the native module is null.
 
-const KINDS = ['cooking', 'shopping', 'leaveBy']
+const KINDS = ['cooking', 'shopping', 'leaveBy', 'medication']
 type Colors = { bg: string; fg: string; accent: string } | null
 
 export function showActivity(kind: unknown, payload: unknown, colors: Colors) {
@@ -48,3 +48,11 @@ export function setLeaveByPush(on: boolean) {
   flush()
 }
 KinwallNative?.addListener('activityToken', (t) => { if (t.kind === 'start') start = t; else updates.push(t); flush() })
+
+/** Debug builds only: a sample medicine Live Activity (family.kinwall.app:/open?debug=medication),
+ * for trying it before the web app sends one. The demo family's Sam, never real data. */
+export function showSampleMedication() {
+  if (!__DEV__) return
+  const now = Date.now()
+  showActivity('medication', { medicationId: 'med1', date: new Date(now).toISOString().slice(0, 10), time: '12:00', memberName: 'Sam', label: 'Medicine', dueAt: new Date(now - 5 * 60_000).toISOString(), windowEndsAt: new Date(now + 2 * 3600_000).toISOString(), stage: 'due' }, null)
+}
