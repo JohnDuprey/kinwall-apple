@@ -11,6 +11,8 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
     public let pointsToday: Int
     public let pointsWeek: Int
     public let balance: Int
+    /// Warnings before their events (the Watch plays them); nil when an admin hasn't set any.
+    public var transitionReminders: TransitionReminders? = nil
 }
 
 public struct Settings: Codable, Hashable, Sendable {
@@ -67,8 +69,39 @@ public struct ListItem: Codable, Identifiable, Hashable, Sendable {
 
 /// GET /api/lists/{id}: the list and its items (in the list's own sort order).
 public struct ListDetail: Codable, Hashable, Sendable {
+    public struct Suggestions: Codable, Hashable, Sendable {
+        /// The household's stores (shopping lists), for "Start shopping at …".
+        public let stores: [String]
+    }
     public let list: FamilyList
     public let items: [ListItem]
+    public var suggestions: Suggestions? = nil
+}
+
+// ---- Medicines (GET /api/medications/due): the "Take now" cards ----
+
+/// A dose due now. `name` and `dose` are nil where the server keeps them off (a shared wall
+/// without medicationNamesOnWalls); a person's own device gets theirs.
+public struct DueDose: Codable, Identifiable, Hashable, Sendable {
+    public let medicationId: String
+    public let memberId: String
+    /// The household day and HH:MM it's for (what POST /api/medications/{id}/doses takes back).
+    public let date: String
+    public let time: String
+    public let dueAt: String
+    public let name: String?
+    public let dose: String?
+    public var id: String { "\(medicationId):\(date):\(time)" }
+    public init(medicationId: String, memberId: String, date: String, time: String, dueAt: String, name: String?, dose: String?) {
+        self.medicationId = medicationId; self.memberId = memberId; self.date = date; self.time = time; self.dueAt = dueAt; self.name = name; self.dose = dose
+    }
+}
+
+public struct DueDoses: Codable, Hashable, Sendable {
+    /// Whether the server sent names at all.
+    public let names: Bool
+    public let doses: [DueDose]
+    public init(names: Bool, doses: [DueDose]) { self.names = names; self.doses = doses }
 }
 
 // ---- Pairing (TV-style: the app shows a code, an admin approves it in Kinwall) ----

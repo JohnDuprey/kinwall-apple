@@ -15,3 +15,17 @@ test('routeFor: a shopping trip\'s Live Activity opens its list in shopping mode
   assert.equal(routeFor('family.kinwall.app:/open?to=lists/l-1_a/shop'), 'lists/l-1_a/shop')
   assert.equal(routeFor('family.kinwall.app:/open?to=lists/x\'%3Balert(1)/shop'), null, 'only plain id characters reach page script')
 })
+
+test('routeFor: Siri and the Controls open shopping mode at a store, a list, the night screen', () => {
+  assert.equal(routeFor('family.kinwall.app:/open?to=lists/l1/shop&store=Shaw%27s%20%26%20Co'), 'lists/l1/shop?store=Shaw\'s%20%26%20Co')
+  assert.equal(routeFor('family.kinwall.app:/open?to=lists&list=l1'), 'lists?list=l1')
+  assert.equal(routeFor('family.kinwall.app:/open?to=lists&list=x%27)'), 'lists', 'only plain ids reach page script')
+  assert.equal(routeFor('family.kinwall.app:/open?to=night'), 'night')
+})
+
+test('routeFor: Spotlight opens a recipe, a list or a contact', () => {
+  assert.equal(routeFor('family.kinwall.app:/open?to=meals&recipe=r-1'), 'meals?recipe=r-1')
+  assert.equal(routeFor('family.kinwall.app:/open?to=contacts&contact=c_2'), 'contacts?contact=c_2')
+  assert.equal(routeFor('family.kinwall.app:/open?to=contacts'), 'contacts')
+  assert.equal(routeFor('family.kinwall.app:/open?to=meals&recipe=%3Cx%3E'), 'meals')
+})

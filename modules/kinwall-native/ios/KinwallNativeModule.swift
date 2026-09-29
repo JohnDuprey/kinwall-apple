@@ -13,8 +13,9 @@ public class KinwallNativeModule: Module {
 
     public func definition() -> ModuleDefinition {
         Name("KinwallNative")
-        Events("watchStateChanged", "activityToken")
+        Events("watchStateChanged", "activityToken", "link")
         OnCreate {
+            NotificationCenter.default.addObserver(forName: PendingLink.posted, object: nil, queue: .main) { [weak self] _ in self?.sendEvent("link") }
             self.watch.onChange = { [weak self] in self?.sendEvent("watchStateChanged") }
             self.watch.start()
             LiveActivities.watchPush { [weak self] token in self?.sendEvent("activityToken", token) }
@@ -48,6 +49,8 @@ public class KinwallNativeModule: Module {
             if status == errSecItemNotFound { status = SecItemAdd(q.merging(attrs) { $1 } as CFDictionary, nil) }
             if status != errSecSuccess { throw Exception(name: "KeychainError", description: "Keychain status \(status)") }
         }
+        /// A link an App Intent left for the web app (PendingLink), once.
+        Function("takeLink") { PendingLink.take() }
         Function("reloadWidgets") { WidgetCenter.shared.reloadAllTimelines() }
         Function("watchAppInstalled") { self.watch.installed }
         /// Delivered whenever the Watch is next reachable: {server, key}, or {signedOut: true}.

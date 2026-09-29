@@ -63,7 +63,8 @@ const withKinwallKit = (config) =>
     // compiles the module's attributes too (ActivityKit matches them by name), and Got it's intent.
     const widgets = root.props.targets.find((t) => PBXNativeTarget.is(t) && t.props.productName === 'KinwallWidgets')
     if (!widgets) throw new Error('withKinwallKit: no KinwallWidgets target')
-    for (const file of ['modules/kinwall-native/ios/KinwallActivityAttributes.swift', 'native/ios/LiveActivityIntents.swift']) addFile(widgets, file)
+    // The Controls (targets/widgets/Controls.swift) run the open-the-app intents, which iOS runs in the app.
+    for (const file of ['modules/kinwall-native/ios/KinwallActivityAttributes.swift', 'native/ios/LiveActivityIntents.swift', 'native/ios/OpenIntents.swift']) addFile(widgets, file)
     return config
   })
 
@@ -104,6 +105,19 @@ const withSceneLifecycle = (config) => {
     return c
   })
 }
+
+// Our native code's hooks in the generated AppDelegate (native/ios/AppHooks.swift): Siri's
+// parameter lists at launch.
+const withAppHooks = (config) =>
+  withAppDelegate(config, (c) => {
+    let src = c.modResults.contents
+    if (src.includes('AppHooks.')) return c
+    const launch = /(\n\s*)return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/
+    if (!launch.test(src)) throw new Error('withAppHooks: the AppDelegate template changed; update the patch')
+    src = src.replace(launch, '$1AppHooks.launched()$&')
+    c.modResults.contents = src
+    return c
+  })
 
 // Android's share sheet: "Kinwall" takes shared text (a browser shares a page as its link), and
 // MainActivity turns it into the app link the JavaScript already routes (src/App.tsx routeFor),
@@ -146,4 +160,4 @@ const withShareIntent = (config) => {
 }
 
 // Mods run newest-first, so register ours before apple-targets' and it runs once the targets exist.
-module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withSceneLifecycle(withSpacesInPath(withShareIntent(config))))), {})
+module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withAppHooks(withSceneLifecycle(withSpacesInPath(withShareIntent(config)))))), {})

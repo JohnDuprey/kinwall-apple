@@ -144,7 +144,10 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     return () => sub.remove()
   }, [])
 
-  const go = (to: string) => web.current?.injectJavaScript(`location.hash = ${JSON.stringify('#/' + to)}; true;`)
+  // 'night' (Siri, Control Center): the event the header's 🌙 Night screen button sends (web/src/Screensaver.tsx SAVER_START_EVENT).
+  const go = (to: string) => web.current?.injectJavaScript(to === 'night'
+    ? `window.dispatchEvent(new Event('kinwall:screensaver-start')); true;`
+    : `location.hash = ${JSON.stringify('#/' + to)}; true;`)
   const isKinwall = (u: string) => { try { return new URL(u).host === host } catch { return false } }
 
   /** Once the page is signed in (its key is in localStorage 'kinwall.apiKey'), make sure the widgets have their own key. */

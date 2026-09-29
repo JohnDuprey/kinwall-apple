@@ -13,7 +13,11 @@ type KinwallNative = {
   activityEndStale(): Promise<void>
   /** Live Activities allowed in iPhone Settings. */
   activitiesEnabled(): boolean
+  /** iOS: a family.kinwall.app:/open link from Siri or a Control (native/ios/OpenIntents.swift), once. */
+  takeLink?(): string | null
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription
+  /** iOS: takeLink() has one. */
+  addListener(event: 'link', listener: () => void): EventSubscription
   /** With push (a paid team): a token for the server, PUT /api/live-activities/tokens. */
   addListener(event: 'activityToken', listener: (t: ActivityToken) => void): EventSubscription
 }

@@ -45,6 +45,15 @@ export default function App() {
   // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
   // recipe links (to=recipes/import&url=…), which open the web app's recipe import.
   useEffect(() => { if (url) { const r = routeFor(url); if (r) setRoute(r) } }, [url])
+  // Siri and the Controls (native/ios/OpenIntents.swift) leave their link with the native module:
+  // take it at launch, when told, and on every return to the app.
+  useEffect(() => {
+    const take = () => { const l = KinwallNative?.takeLink?.(); const r = l ? routeFor(l) : null; if (r) setRoute(r) }
+    take()
+    const sub = KinwallNative?.addListener('link', take)
+    const active = AppState.addEventListener('change', (s) => { if (s === 'active') take() })
+    return () => { sub?.remove(); active.remove() }
+  }, [])
   // A tapped reminder opens its event.
   useEffect(() => {
     const r = tapped?.notification.request.content.data?.route

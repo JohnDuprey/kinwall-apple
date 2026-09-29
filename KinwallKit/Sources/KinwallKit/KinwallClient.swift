@@ -84,6 +84,15 @@ public struct KinwallClient: Sendable {
         try await sendIgnoringBody("PATCH", "api/lists/\(listId)/items/\(itemId)", body: DoneBody(done: done))
     }
 
+    // MARK: Medicines (404 while the family has them off)
+
+    public func dueDoses() async throws -> DueDoses { try await send("GET", "api/medications/due") }
+    public enum DoseAction: String, Encodable, Sendable { case taken, skipped, snooze }
+    /// Taken, skipped, or snoozed 10 minutes (only while it's due).
+    public func mark(_ dose: DueDose, _ action: DoseAction) async throws {
+        try await sendIgnoringBody("POST", "api/medications/\(dose.medicationId)/doses", body: DoseBody(date: dose.date, time: dose.time, action: action))
+    }
+
     // MARK: Pairing (no key needed)
 
     public func startPairing() async throws -> PairStart { try await send("POST", "api/pair", body: Empty()) }
@@ -99,6 +108,7 @@ public struct KinwallClient: Sendable {
     private struct CompleteBody: Encodable { let date: String; let memberId: String? }
     private struct NewItem: Encodable { let title: String }
     private struct DoneBody: Encodable { let done: Bool }
+    private struct DoseBody: Encodable { let date: String; let time: String; let action: DoseAction }
     private struct PollBody: Encodable { let pairingId: String; let pollToken: String }
     private struct ErrorBody: Decodable { let error: String }
 
