@@ -25,3 +25,4 @@ Swift in `targets/` and `native/` is type-checked against the iOS simulator SDK
 - Never change the signing team or bundle IDs, and never commit signing files or keys.
 - `scripts/install-device.sh` must stop on a failed build; never install a stale build.
 - Scopes for commits: `ios`, `android`, `widgets`, `watch`, `share`, `shell`, `native`, `docs`.
+- Releases: release-please on `main` (`release-please-config.json`; never edit versions or `CHANGELOG.md` by hand); merging its PR tags `vX.Y.Z` and `.github/workflows/build.yml` attaches the unsigned builds. Build numbers come from the version (README, Install a test build), so keep minor and patch under 100.

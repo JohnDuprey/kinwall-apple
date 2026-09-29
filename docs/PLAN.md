@@ -105,8 +105,15 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 - [x] Build and run on an emulator (Pixel, Android 16): the countdowns below. A phone is still to try
 - [x] Parity with the iPhone app's own touches (2026-09-29): **Try the demo** (sample reminders, and the widget shows a sample family while the demo is open), the saved family colors with no flash (the launch screen in Kinwall's light or dark color, the frame and page in the family's; the navigation bar's buttons now follow the page too), the keyboard (the first screen keeps **Try the demo** above it; in the web view the content makes room for it, since edge to edge on Android 15 and later the window no longer shrinks), the key refresh before the page opens, keep-awake while shopping, recipe links from the share sheet, `family.kinwall.app:/open` links, the back button through the web history, and safe areas edge to edge. The Settings line about countdowns needs the web change under [Android countdowns](#android-countdowns-built-2026-09-29)
 - [x] The Live Activities as ongoing notifications, and leave-by countdowns scheduled with no push: see [Android countdowns](#android-countdowns-built-2026-09-29)
-- [ ] Play Console listing and internal testing track (EAS `preview` gives an installable APK meanwhile)
+- [ ] Play Console listing and internal testing track (meanwhile each GitHub Release has an installable APK, and EAS `preview` gives one too)
 - [ ] The web app marks itself `data-native="ios"` inside either app; give Android its own value if styles need to differ
+
+### Releases
+- [x] release-please: a `chore: release x.y.z` PR from the Conventional Commits on `main`; merging it tags `vX.Y.Z` and makes the GitHub Release (versions independent of the server's)
+- [x] Unsigned builds attached to each release (`.github/workflows/build.yml`): an Android APK signed with a throwaway key, the unsigned APK, an unsigned IPA with the widgets, share extension and Watch app, a Simulator build, and `SHA256SUMS.txt` (README, Install a test build)
+- [x] Build numbers from the version, `major*10000 + minor*100 + patch`, through `KINWALL_BUILD_NUMBER` and `app.config.js`
+- [ ] First run on GitHub (needs "Allow GitHub Actions to create and approve pull requests" in the repo settings)
+- [ ] A kept signing key (a repo secret) so Android test builds update in place, if that becomes worth it; signed store builds come with M6 and the Play Console
 
 ### M8: Wear OS (later)
 - A watch app like the Apple Watch one: Now/Next, my chores, Groceries, and tiles and complications. Native Kotlin (Compose for Wear OS), with the key handed over from the phone app over the Wearable Data Layer.
