@@ -35,12 +35,13 @@ A menu for M3 (widgets), M4 (Watch) and M5 (Siri), built on things Kinwall alrea
 |---|---|---|
 | **Next event** (inline and rectangular) | "Soccer · 4:00 · leave 3:40" | First |
 | **Chores left** (circular) | A ring filling as today's chores get done | First |
+| **Take now** (circular, rectangular, inline) | Medicines due now: how many, and whose. Names stay "Medicine" unless the widget's **Show medicine names** is on and the server shares names with this device (a person's own device, or a wall with names on) | Built |
 | **List count** (circular) | Open items on Groceries | Later |
 | **Points** (circular) | My points this week | Later |
 
 ### StandBy and nightstand
 
-The small widgets work in StandBy with no extra work. The Family photo and Now & Next widgets suit a charging iPhone on the kitchen counter.
+**Clock & next** (small) is made for StandBy: a big clock (one timeline entry a minute from a single fetch) and what's next, with the leave-by time. The other small widgets work in StandBy too. The Family photo and Now & Next widgets suit a charging iPhone on the kitchen counter.
 
 ### Controls (Control Center, Lock Screen, Action button)
 
@@ -128,6 +129,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
   - **Start the night screen:** "Start the Kinwall night screen" opens the app on the dim night clock (the event the header's 🌙 button sends).
 
   They run in the app's process with the widgets' key; the ones that open the app hand their link to the web app through the native module (`PendingLink`), so one that launches the app isn't lost. In the demo they answer from the demo family and save nothing. Checked in the iOS 26.5 Simulator (iPhone 17 Pro): What's on today, Mark a chore done (with its chore and person pickers) and Night screen. The earlier "Couldn't find AppShortcutsProvider" came from the Simulator build being signed ad hoc, with no team; `scripts/sign-simulator.sh` re-signs it (README).
+- **Take now and Clock & next (built 2026-09-29):** Take now reads `GET /api/medications/due` with the widgets' key every 15 minutes; the Home Screen size has **Taken**, which marks the first dose (`MarkDoseIntent`). The medicines feature turned off (404) shows "Nothing due". Checked in the Simulator with the demo: both on the Home Screen, and Take now and Chores left on the Lock Screen.
 - **Spotlight (built 2026-09-29):** the family's recipes, lists and contacts, by name with a short line ("Recipe · 35 min · …", "Shopping list · 12 left", "Contact · Grandparent"), never notes, phone numbers, addresses or health entries. `src/spotlight.ts` fetches them with the widgets' key when the app opens or comes back (at most every 10 minutes) and hands them to `modules/kinwall-native/ios/Spotlight.swift`, which replaces the app's items; sign-out clears them. The demo shows a few of the demo family's. Each item's identifier is its app link, so a tap opens its page (`native/ios/AppHooks.swift`). The web app opens Lists on the list (`?list=`); a recipe or contact opens Meals or Contacts until it reads `?recipe=` and `?contact=`. Checked in the Simulator: "Rosa" finds Grandma Rosa and the tap opens Contacts.
 - **Next:** install on a real iPhone and Watch; check Siri, reminder taps and complications there.
 

@@ -2,7 +2,8 @@ import SwiftUI
 import WidgetKit
 import KinwallKit
 
-// First-pass widgets (docs/WIDGETS-AND-WATCH.md): Now & Next, Today, and a Chores-left ring.
+// The widgets (docs/WIDGETS-AND-WATCH.md): Now & Next, Today, a Chores-left ring, Chores and List
+// (InteractiveWidgets.swift), Take now and the StandBy clock (MoreWidgets.swift), and the Live Activities.
 // They read the Board with the widgets' own everyday-access key (SharedKeychain.widgetStore).
 
 @main
@@ -13,6 +14,8 @@ struct KinwallWidgets: WidgetBundle {
         ChoresLeftWidget()
         ChoresWidget()
         ListWidget()
+        TakeNowWidget()
+        StandByClockWidget()
         KinwallLiveActivity()
     }
 }
