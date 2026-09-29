@@ -167,6 +167,10 @@
           "backgroundColor": "#FFFBF5",
           "dark": {
             "backgroundColor": "#1C1712"
+          },
+          "android": {
+            "image": "./assets/icon.png",
+            "imageWidth": 120
           }
         }
       ]
