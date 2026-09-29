@@ -12,6 +12,8 @@ import { clearServer, loadServer, saveServer } from './server'
 import { ServerEntry } from './ServerEntry'
 import { type Session, freshTokens, loadSession, signOut } from './session'
 import { syncWatch } from './sharedKey'
+import { routeFor } from './links'
+import { endAllActivities, endStaleActivities } from './liveActivities'
 import { SignIn } from './SignIn'
 import { WebShell } from './WebShell'
 import { hideSplash, useUi } from './theme'
@@ -51,15 +53,15 @@ export default function App() {
 
   // Reminders are rescheduled each time the app opens or goes to the background.
   useEffect(() => {
-    refreshReminders()
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'background') scheduleBackgroundRefresh(); if (s === 'active') refreshReminders() })
+    refreshReminders(); endStaleActivities()
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'background') scheduleBackgroundRefresh(); if (s === 'active') { refreshReminders(); endStaleActivities() } })
     const watch = KinwallNative?.addListener('watchStateChanged', () => { syncWatch() }) // e.g. the Watch app was just installed
     return () => { sub.remove(); watch?.remove() }
   }, [])
 
   // Leaving the demo is the same as changing server: back to the first screen (the demo was never
   // saved), with its sample widgets and reminders cleared (src/demo.ts).
-  const changeServer = useCallback(async () => { if (session?.mode === 'demo') await leaveDemo(); else { await signOut(session); await clearServer() } setSession(null); setServer(null) }, [session])
+  const changeServer = useCallback(async () => { endAllActivities(); if (session?.mode === 'demo') await leaveDemo(); else { await signOut(session); await clearServer() } setSession(null); setServer(null) }, [session])
   const signedOut = useCallback(async () => { if (session?.mode === 'demo') { await leaveDemo(); setSession(null); setServer(null); return } await signOut(session); setSession(null) }, [session])
   const tryDemo = useCallback(() => { setSession({ mode: 'demo' }); setServer(DEMO_URL); enterDemo() }, [])
   const onTokens = useCallback((tokens: Tokens) => setSession({ mode: 'oauth', tokens }), [])
@@ -85,22 +87,4 @@ async function launchSession(server: string): Promise<Session> {
   // page's 401 comes back to WebShell, which refreshes and reloads).
   const tokens = await Promise.race([freshTokens(s.tokens), new Promise<Tokens>((r) => setTimeout(() => r(s.tokens), 4000))])
   return tokens ? { mode: 'oauth', tokens } : null
-}
-
-/** family.kinwall.app:/open?to=chores&done=abc → "chores?done=abc"; a shared recipe page,
- * ?to=recipes/import&url=<page> (from an Android share) →
- * "recipes/import?url=<page>"; anything else → null. */
-export function routeFor(link: string): string | null {
-  const m = /^family\.kinwall\.app:\/*open\?(.*)$/.exec(link)
-  if (!m) return null
-  const q = new URLSearchParams(m[1])
-  const to = q.get('to')?.replace(/^\//, '')
-  if (to === 'recipes/import') {
-    const page = q.get('url')
-    return page && /^https?:\/\/[^\s]+$/i.test(page) && page.length <= 2000 ? `recipes/import?url=${encodeURIComponent(page)}` : null
-  }
-  if (!to || !['calendar', 'chores', 'lists'].includes(to)) return null
-  const done = q.get('done')
-  // The id lands in page script, so only plain id characters pass.
-  return to === 'chores' && done && /^[A-Za-z0-9_-]+$/.test(done) ? `chores?done=${done}` : to
 }

@@ -20,7 +20,8 @@ Native apps for the family who already use Kinwall. On iPhone and iPad the app s
 | Siri and Shortcuts (App Intents) | Yes | Yes |
 | Share extension (imports a shared recipe link; shared Keychain group, no App Group) | Yes | Yes |
 | **App Groups** (app and widget share storage) | No | Yes |
-| **Push notifications** (APNs) | No | Yes |
+| **Push notifications** (APNs), including Live Activity push-to-start | No | Yes |
+| Live Activities started by the app (cooking timer, shopping trip, leave-by while open) | Yes | Yes |
 | iCloud, Sign in with Apple, Associated Domains (passkeys, universal links) | No | Yes |
 | TestFlight, App Store | No | Yes |
 
@@ -92,6 +93,7 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 - Spotlight for lists and chores
 
 ### M6: When there's a paid membership (not enrolled yet)
+- **Live Activities while the app is closed** (built behind configuration, off until then): see [Turning on Live Activity push](#turning-on-live-activity-push)
 - **APNs push:** the server gains an APNs sender beside web push, using the same notification preferences
 - **App Groups** for the app and widgets (retire any workaround from M3)
 - **Passkeys and universal links** (Associated Domains on `kinwall.family`)
@@ -106,6 +108,24 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 
 ### M8: Wear OS (later)
 - A watch app like the Apple Watch one: Now/Next, my chores, Groceries, and tiles and complications. Native Kotlin (Compose for Wear OS), with the key handed over from the phone app over the Wearable Data Layer.
+
+## Live Activities (built 2026-09-29)
+
+Three Live Activities: a cooking timer, a shopping trip (with **Got it** and **Open**) and the next leave-by or start-prep time. See [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md#live-activities). Everything the app starts itself works on a free Personal Team: ActivityKit and interactive App Intents need no capability, and **Got it** ticks the item with the widgets' key from the shared Keychain group, so it needs no App Group. The deployment target is iOS 17, so the < 16.1 and < 17 cases can't occur; push-to-start is checked for iOS 17.2.
+
+What waits for the paid membership is Apple push: starting the leave-by activity while the app is closed, and ending it on time. The code is in place and off:
+
+- **App:** `KINWALL_PUSH=1` at prebuild keeps the `aps-environment` entitlement (otherwise removed, since a Personal Team can't sign it) and sets `KinwallPush` in Info.plist. Only then does the app ask for its push-to-start token and each leave-by activity's update token, and send them to the server (`PUT /api/live-activities/tokens` with the page's key; never in the demo, and the push-to-start token only while the phone's person has transition reminders on and notifications are allowed).
+- **Server:** does nothing until `APNS_*` is set (kinwall `docs/self-hosting/configuration.md`).
+
+### Turning on Live Activity push
+
+1. Enroll, and in **Certificates, Identifiers & Profiles** give the App ID `family.kinwall.app` the **Push Notifications** capability.
+2. Under **Keys**, create a key with **Apple Push Notifications service (APNs)**. Download the `.p8` (once), and note its Key ID and the Team ID.
+3. Build with `KINWALL_PUSH=1 CI=1 npx expo prebuild --clean`, signed with the paid team. For TestFlight and the App Store, `aps-environment` must be `production` (expo-notifications writes `development`; set it in `withLocalOnly` for release builds).
+4. On the Kinwall server: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY` (the `.p8` contents, a secret), `APNS_BUNDLE_ID=family.kinwall.app`, and `APNS_SANDBOX=1` while testing builds installed from Xcode.
+5. Hosted (Cloudflare Workers): APNs only speaks HTTP/2 and a Worker's `fetch` doesn't, so kinwall-cloud has to pass an `APNS_SEND` relay (kinwall `docs/contributing/embedding.md`). Docker and Node send directly.
+6. Check: give a person transition reminders, set their phone's owner to them (Settings → Access), allow notifications, close the app, and add an event with travel time 35 minutes out. The Live Activity should appear at the first reminder and go away when the event starts.
 
 ## Server work (in the `kinwall` repo)
 

@@ -51,10 +51,15 @@ The small widgets work in StandBy with no extra work. The Family photo and Now &
 
 ### Live Activities
 
-| Activity | What it does | Tag |
+Built (2026-09-29), in `targets/widgets/LiveActivities.swift`, started by the app from the web app's messages (`modules/kinwall-native/ios/LiveActivities.swift`; the web app decides what they say, `web/src/liveActivity.ts` in kinwall). One `KinwallActivityAttributes` type for all three (`modules/kinwall-native/ios/KinwallActivityAttributes.swift`, compiled into the widget extension too). No Kinwall setting: iPhone **Settings → Kinwall → Live Activities** turns them off, and the web app's Notifications section says which.
+
+| Activity | What it does | Needs |
 |---|---|---|
-| **Leave-by countdown** | Starts before an event with travel time: a countdown on the Lock Screen and in the Dynamic Island ("Leave for Soccer in 8 min"). The app can start it itself when it knows one is coming up. | Later |
-| **Updates from the server** (a changed time, a new event) | Needs APNs push to update a Live Activity remotely | Paid |
+| **Cooking timer** | Starts with a step timer in cooking mode: recipe, timer name and step, a countdown (`Text(timerInterval:)`), "+1 more". When it's up it says "Done: Chicken" (it goes stale at the timer's end, so no update is needed); gone when the timer is dismissed or cooking mode closes. | Nothing: local |
+| **Shopping trip** | Starts with a trip (Shop, or shopping mode): "Neighborhood market · next: Produce", the next item and how many are left, in walking order. **Got it** ticks that item (`GotItIntent`, `native/ios/LiveActivityIntents.swift`) with the widgets' own key from the shared Keychain group, then moves on to the next of the five items it carries; **Open** opens shopping mode (`family.kinwall.app:/open?to=lists/<id>/shop`). The page updates it on every change; Checkout or End ends it. | Nothing: the shared Keychain group, no App Group |
+| **Leave by / start prep by** | The device's person's next leave-by or start-prep time (a meal's event), from their first transition reminder until the event starts: a varied headline ("Sam, leave for Piano Lesson at 10:55 AM 🚙") and a countdown, then "Leave now" once it's time (stale date). Only on a phone that belongs to someone with transition reminders on and notifications allowed. | Local while the app is open; Apple push (paid) while it's closed |
+
+Checked in the iOS 27 Simulator (iPhone 17 Pro) with the demo: all three start and show on the Lock Screen and in the Dynamic Island (compact, minimal, expanded), countdowns tick, and **Got it** moves the trip on. In that Simulator iOS runs Got it in the widget extension rather than the app, so both copies of the intent do the whole job. `xcrun simctl push` delivered a push-to-start payload only as a plain notification (no Live Activity), so push-to-start is checked by the server's tests, not end to end.
 
 ## Apple Watch
 

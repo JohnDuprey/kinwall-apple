@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { Tokens } from './oauth'
 import { refreshReminders, requestPermission } from './reminders'
-import { type Surface, frameColors, parseAppearance } from './appearance'
+import { type Surface, activityColors, frameColors, parseAppearance } from './appearance'
+import { activitiesEnabled, endActivity, endAllActivities, setActivityDevice, setLeaveByPush, showActivity } from './liveActivities'
+import * as Notifications from 'expo-notifications'
 import { hideSplash, saveAppearance, savedAppearance, useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './sharedKey'
@@ -33,7 +35,7 @@ const VERSION = Constants.expoConfig?.version ?? '0'
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
 const bridge = (token: string | null, frame: (Surface & { dark: boolean }) | null) => `
-window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)} };
+window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())} };
 ${token ? `try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
@@ -114,6 +116,20 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     return () => { clearInterval(timer); sub.remove() }
   }, [session, onTokens, onSignedOut])
 
+  // Live Activities may have been turned on or off in iPhone Settings meanwhile: tell the page. A
+  // leave-by held back for want of notifications shows once they're allowed (the page sends it once).
+  const heldLeaveBy = useRef<unknown>(null)
+  const frameNow = useRef(frame)
+  frameNow.current = frame
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (s) => {
+      if (s !== 'active') return
+      web.current?.injectJavaScript(`try { window.kinwallNative.liveActivities = ${JSON.stringify(activitiesEnabled())}; window.dispatchEvent(new Event('kinwallnative')) } catch (e) {} true;`)
+      if (heldLeaveBy.current && (await Notifications.getPermissionsAsync()).granted) showActivity('leaveBy', heldLeaveBy.current, activityColors(frameNow.current))
+    })
+    return () => sub.remove()
+  }, [])
+
   // A tab to show (a widget link or a tapped reminder): once the page is up.
   useEffect(() => {
     if (!route) return
@@ -135,7 +151,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const syncKey = () => web.current?.injectJavaScript(`window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'key', key: localStorage.getItem('kinwall.apiKey') })); true;`)
 
   const onMessage = async (e: WebViewMessageEvent) => {
-    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean }
+    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown }
     try { m = JSON.parse(e.nativeEvent.data) } catch { return }
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
@@ -149,15 +165,27 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       // Shopping mode (web/src/native.ts) keeps the screen on while you shop.
       case 'leaveDemo': if (session.mode === 'demo') onChangeServer(); break // web/src/native.ts: the demo bar's Leave demo
       case 'keepAwake': (m.on ? activateKeepAwakeAsync('shop') : deactivateKeepAwake('shop')).catch(() => {}); break
+      // web/src/native.ts: a cooking timer, a shopping trip or the next leave-by, as a Live Activity.
+      // A leave-by follows the reminders: none without notifications allowed.
+      case 'activity':
+        if (m.kind === 'leaveBy') { heldLeaveBy.current = m.payload; if (!(await Notifications.getPermissionsAsync()).granted) break }
+        showActivity(m.kind, m.payload, activityColors(frame)); break
+      case 'activityEnd': if (m.kind === 'leaveBy') heldLeaveBy.current = null; endActivity(m.kind); break
+      // web/src/native.ts: whether this device's person gets transition reminders (and so the leave-by push).
+      case 'leaveByPush':
+        if (session.mode !== 'demo') setLeaveByPush(!!m.on && (await Notifications.getPermissionsAsync()).granted)
+        break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
         if (m.reason === 'rejected' && session.mode === 'oauth') {
           const next = await freshTokens(session.tokens)
           if (next) { onTokens(next); web.current?.reload(); return }
         }
+        endAllActivities(); setActivityDevice(null)
         onSignedOut(); break
       case 'key':
         if (!m.key || session.mode === 'demo') return // the demo's sample key never reaches the widgets, Watch or reminders
+        setActivityDevice({ baseURL: url, key: m.key })
         if (session.mode === 'paired') await shareKey({ baseURL: url, key: m.key })
         await ensureWidgetKey(url, m.key)
         reloadWidgets()

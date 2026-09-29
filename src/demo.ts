@@ -5,8 +5,11 @@ import KinwallNative from '../modules/kinwall-native'
 import { CHANNEL, requestPermission } from './reminders'
 import { reloadWidgets } from './widgets'
 
-/** The demo family (a static copy of the web app with sample data): no sign-in, nothing saved. */
-export const DEMO_URL = 'https://demo.kinwall.family'
+/** The demo family (a static copy of the web app with sample data): no sign-in, nothing saved.
+ * A debug build can point it at a local copy with EXPO_PUBLIC_DEMO_URL (the kinwall repo's
+ * `npm run build:demo`, served locally) to try web changes that aren't live yet; a release build
+ * always uses the real one. */
+export const DEMO_URL = (__DEV__ && process.env.EXPO_PUBLIC_DEMO_URL) || 'https://demo.kinwall.family'
 
 // While the demo is open, the iOS widgets show the demo family's built-in sample data and two
 // sample reminders arrive, so a visitor (or an App Store reviewer) sees both with no server. The

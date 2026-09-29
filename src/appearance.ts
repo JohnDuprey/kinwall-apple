@@ -30,3 +30,10 @@ export function frameColors(a: Appearance | null, systemDark: boolean): (Surface
   const dark = a.mode === 'auto' ? systemDark : a.dark
   return { dark, ...(dark ? a.colors.dark : a.colors.light) }
 }
+
+/** A Live Activity's colors (modules/kinwall-native/ios/LiveActivities.swift): the frame's background
+ * with Kinwall's text and accent for light or dark; null draws Kinwall's own, following the system. */
+export function activityColors(frame: (Surface & { dark: boolean }) | null): { bg: string; fg: string; accent: string } | null {
+  if (!frame) return null
+  return frame.dark ? { bg: frame.bg, fg: '#F3EAE0', accent: '#FF9E7A' } : { bg: frame.bg, fg: '#3A2E27', accent: '#A5613F' }
+}

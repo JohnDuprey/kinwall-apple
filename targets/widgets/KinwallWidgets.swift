@@ -13,6 +13,7 @@ struct KinwallWidgets: WidgetBundle {
         ChoresLeftWidget()
         ChoresWidget()
         ListWidget()
+        KinwallLiveActivity()
     }
 }
 

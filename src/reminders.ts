@@ -4,6 +4,7 @@ import * as TaskManager from 'expo-task-manager'
 import { Platform } from 'react-native'
 import { type EventInstance, events } from './api'
 import { widgetConnection } from './sharedKey'
+import { endStaleActivities } from './liveActivities'
 
 // Event reminders as local notifications (docs/WIDGETS-AND-WATCH.md): the app can't receive the
 // server's web push, so it schedules the same reminders itself from the event list, using each
@@ -50,6 +51,7 @@ export async function clearReminders(): Promise<void> {
 // A few times a day, so reminders for events added elsewhere are scheduled even if the app isn't opened.
 TaskManager.defineTask(REFRESH_TASK, async () => {
   await refreshReminders()
+  endStaleActivities() // a leave-by whose event started while the app was closed
   return BackgroundTask.BackgroundTaskResult.Success
 })
 export const scheduleBackgroundRefresh = () => BackgroundTask.registerTaskAsync(REFRESH_TASK, { minimumInterval: 240 }).catch(() => {})

@@ -18,7 +18,8 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true,
           "NSAllowsArbitraryLoadsInWebContent": true
-        }
+        },
+        "NSSupportsLiveActivities": true
       },
       "entitlements": {
         "keychain-access-groups": [

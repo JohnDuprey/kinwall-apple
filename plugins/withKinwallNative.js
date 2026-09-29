@@ -53,19 +53,28 @@ const withKinwallKit = (config) =>
     }
     const app = root.getMainAppTarget('ios')
     const dir = path.join(config.modRequest.projectRoot, 'native/ios')
-    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.swift'))) {
-      const ref = PBXFileReference.create(project, { path: `../native/ios/${file}`, sourceTree: 'SOURCE_ROOT', lastKnownFileType: 'sourcecode.swift' })
+    const addFile = (target, file) => {
+      const ref = PBXFileReference.create(project, { path: `../${file}`, sourceTree: 'SOURCE_ROOT', lastKnownFileType: 'sourcecode.swift' })
       root.props.mainGroup.props.children.push(ref)
-      app.getSourcesBuildPhase().ensureFile({ fileRef: ref })
+      target.getSourcesBuildPhase().ensureFile({ fileRef: ref })
     }
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.swift'))) addFile(app, `native/ios/${file}`)
+    // The Live Activities: the widget extension draws what the app's native module starts, so it
+    // compiles the module's attributes too (ActivityKit matches them by name), and Got it's intent.
+    const widgets = root.props.targets.find((t) => PBXNativeTarget.is(t) && t.props.productName === 'KinwallWidgets')
+    if (!widgets) throw new Error('withKinwallKit: no KinwallWidgets target')
+    for (const file of ['modules/kinwall-native/ios/KinwallActivityAttributes.swift', 'native/ios/LiveActivityIntents.swift']) addFile(widgets, file)
     return config
   })
 
 // The app's own Info.plist follows the build setting too; and no push entitlement (expo-notifications
-// adds one): reminders are local, and a Personal Team can't sign push.
+// adds one): reminders are local, and a Personal Team can't sign push. KINWALL_PUSH=1 at prebuild
+// (a paid team, docs/PLAN.md) keeps it for the Live Activities' Apple push, and KinwallPush tells
+// the app to ask for their tokens.
+const PUSH = process.env.KINWALL_PUSH === '1'
 const withLocalOnly = (config) => {
-  config = withInfoPlist(config, (c) => { c.modResults.CFBundleVersion = '$(CURRENT_PROJECT_VERSION)'; return c })
-  return withEntitlementsPlist(config, (c) => { delete c.modResults['aps-environment']; return c })
+  config = withInfoPlist(config, (c) => { c.modResults.CFBundleVersion = '$(CURRENT_PROJECT_VERSION)'; c.modResults.KinwallPush = PUSH; return c })
+  return withEntitlementsPlist(config, (c) => { if (!PUSH) delete c.modResults['aps-environment']; return c })
 }
 
 // iOS 27 kills apps built with its SDK at launch unless they use the scene life cycle (the

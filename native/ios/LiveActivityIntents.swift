@@ -1,0 +1,49 @@
+import ActivityKit
+import AppIntents
+import KinwallKit
+#if canImport(KinwallNative)
+internal import KinwallNative // the app: KinwallActivityAttributes comes from the native module
+#endif
+
+// "Got it" on the shopping trip's Live Activity (targets/widgets/LiveActivities.swift). Compiled into
+// the app and the widget extension (plugins/withKinwallNative.js): the button needs the type there,
+// and iOS may run it in either process (in the iOS 27 Simulator it runs in the extension, which can
+// update the activity too), so both copies do the whole job.
+//
+// It ticks the item with the widgets' own everyday-access key from the shared Keychain group
+// (KinwallKit SharedKeychain), which a free Personal Team signs, so no App Group and no waiting
+// for the app's page. Then it moves the activity on to the next item it carries (up to five; the
+// page sends a fresh list when it's next open). Signed out, it fails and Open is the way in.
+
+struct GotItIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Got it"
+    static let isDiscoverable = false
+    @Parameter(title: "List") var listId: String
+    @Parameter(title: "Item") var itemId: String
+    init() {}
+    init(listId: String, itemId: String) { self.listId = listId; self.itemId = itemId }
+
+    func perform() async throws -> some IntentResult {
+        if let connection = try? SharedKeychain.widgetStore.load() {
+            try await KinwallClient(connection).setDone(true, item: itemId, in: listId)
+        } else if (try? SharedKeychain.demoStore.load()) == nil {
+            throw GotItError.signedOut
+        } // the demo: its sample list just moves on
+        for activity in Activity<KinwallActivityAttributes>.activities where activity.attributes.listId == listId && activity.content.state.itemId == itemId {
+            var s = activity.content.state
+            let rest = Array((s.queue ?? []).drop { $0.id != itemId }.dropFirst())
+            s.count = max(0, s.count - 1)
+            s.itemId = rest.first?.id
+            s.title = rest.first?.title ?? ""
+            s.detail = rest.first?.aisle
+            s.queue = rest
+            await activity.update(ActivityContent(state: s, staleDate: nil))
+        }
+        return .result()
+    }
+}
+
+enum GotItError: Error, CustomLocalizedStringResourceConvertible {
+    case signedOut
+    var localizedStringResource: LocalizedStringResource { "Open Kinwall to sign in first." }
+}

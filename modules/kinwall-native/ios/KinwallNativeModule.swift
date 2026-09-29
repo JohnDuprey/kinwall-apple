@@ -2,6 +2,7 @@ import ExpoModulesCore
 import WidgetKit
 import WatchConnectivity
 import Security
+import ActivityKit
 
 /// What the shell can't do from JavaScript: reload the widgets' timelines, hand the Watch its key
 /// over WatchConnectivity (src/sharedKey.ts mints it; targets/watch keeps it), and keep keys in
@@ -12,11 +13,24 @@ public class KinwallNativeModule: Module {
 
     public func definition() -> ModuleDefinition {
         Name("KinwallNative")
-        Events("watchStateChanged")
+        Events("watchStateChanged", "activityToken")
         OnCreate {
             self.watch.onChange = { [weak self] in self?.sendEvent("watchStateChanged") }
             self.watch.start()
+            LiveActivities.watchPush { [weak self] token in self?.sendEvent("activityToken", token) }
         }
+        /// Live Activities (LiveActivities.swift): `payload` is the web app's JSON for that kind;
+        /// `colors` the family's (#RRGGBB bg, fg, accent), or nil for Kinwall's.
+        AsyncFunction("activitySet") { (kind: String, payload: String, colors: [String: String]?) in
+            let theme = colors.flatMap { c in c["bg"].flatMap { bg in c["fg"].flatMap { fg in c["accent"].map { KinwallActivityAttributes.Colors(bg: bg, fg: fg, accent: $0) } } } }
+            try await LiveActivities.set(kind: kind, json: payload, colors: theme) { [weak self] token in self?.sendEvent("activityToken", token) }
+        }
+        AsyncFunction("activityEnd") { (kind: String?) in
+            if let kind { await LiveActivities.end(kind: kind) } else { await LiveActivities.endAll() }
+        }
+        AsyncFunction("activityEndStale") { await LiveActivities.endStale() }
+        /// Off in iPhone Settings → Kinwall → Live Activities (the web app says so in its Notifications section).
+        Function("activitiesEnabled") { ActivityAuthorizationInfo().areActivitiesEnabled }
         /// `shared`: the group the widgets, Watch and Siri read (SharedKeychain.group).
         AsyncFunction("keychainGet") { (service: String, shared: Bool) -> String? in
             var q = Keychain.query(service, shared)
