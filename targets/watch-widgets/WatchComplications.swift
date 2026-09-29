@@ -12,6 +12,7 @@ struct KinwallComplications: WidgetBundle {
         NextEventComplication()
         ChoresLeftComplication()
         MedsDueComplication()
+        BatteryComplication()
     }
 }
 
@@ -165,5 +166,40 @@ struct MedsDueView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Energy battery
+
+/// The owner's energy battery as a gauge only: no reasons, no name (a watch face is on show).
+/// Only on a person's own Watch; the server refuses anyone else.
+struct BatteryLevelEntry: TimelineEntry { let date: Date; let level: Int? }
+
+struct BatteryLevelProvider: TimelineProvider {
+    func placeholder(in context: Context) -> BatteryLevelEntry { BatteryLevelEntry(date: .now, level: 62) }
+    func getSnapshot(in context: Context, completion: @escaping (BatteryLevelEntry) -> Void) { completion(placeholder(in: context)) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<BatteryLevelEntry>) -> Void) {
+        nonisolated(unsafe) let completion = completion
+        Task {
+            var level: Int?
+            if let connection = try? SharedKeychain.widgetStore.load() {
+                let client = KinwallClient(connection)
+                if let person = try? await client.me().person { level = (try? await client.battery(person))?.summary?.level }
+            }
+            completion(Timeline(entries: [BatteryLevelEntry(date: .now, level: level)], policy: .after(.now.addingTimeInterval(3 * 3600))))
+        }
+    }
+}
+
+struct BatteryComplication: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "Battery", provider: BatteryLevelProvider()) { entry in
+            Gauge(value: Double(entry.level ?? 0), in: 0...100) { Image(systemName: "bolt.fill") } currentValueLabel: { Text(entry.level.map { "\($0)" } ?? "–") }
+                .gaugeStyle(.accessoryCircularCapacity)
+                .containerBackground(.fill.tertiary, for: .widget)
+        }
+        .configurationDisplayName("Energy")
+        .description("Your energy battery as a gauge. Only on your own Watch.")
+        .supportedFamilies([.accessoryCircular])
     }
 }

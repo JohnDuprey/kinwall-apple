@@ -4,7 +4,7 @@ import KinwallKit
 import WidgetKit
 import UserNotifications
 
-/// The Watch app (M4, docs/WIDGETS-AND-WATCH.md): Today, My chores, Take now and Lists, plus haptic
+/// The Watch app (M4, docs/WIDGETS-AND-WATCH.md): Today, My chores, Check-in, Take now and Lists, plus haptic
 /// transition warnings (Transitions.swift). Its key comes from the
 /// iPhone app over WatchConnectivity and is kept in the Watch's own Keychain.
 @main
@@ -17,6 +17,7 @@ struct KinwallWatchApp: App {
                 TabView {
                     TodayView(client: KinwallClient(connection))
                     ChoresView(client: KinwallClient(connection))
+                    CheckInView(client: KinwallClient(connection))
                     MedsView(client: KinwallClient(connection))
                     ListsView(client: KinwallClient(connection))
                 }

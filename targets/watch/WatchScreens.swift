@@ -137,6 +137,56 @@ struct ChoresView: View {
     }
 }
 
+// MARK: - Check-in
+
+/// One tap for "How did you sleep?" on the owner's Watch (health data: only with a key that
+/// belongs to them; a shared Watch says so). The rest of the check-in is on the iPhone.
+struct CheckInView: View {
+    let client: KinwallClient
+    @State private var person: String?
+    @State private var check: TempCheck?
+    @State private var shared = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if shared {
+                    Text("Check-in is only on a person's own Watch.").foregroundStyle(.secondary)
+                } else if let check, let person {
+                    switch check.step {
+                    case .sleep:
+                        Section("How did you sleep?") {
+                            ForEach(TempCheck.sleepAnswers, id: \.key) { a in
+                                Button { Task { await answer(person, a.key) } } label: { Text("\(a.emoji) \(a.label)") }
+                            }
+                        }
+                    case .done: Label("Checked in", systemImage: "checkmark.circle").foregroundStyle(.secondary)
+                    case .off: Text("Check-in is off for you.").foregroundStyle(.secondary)
+                    default: Text("Finish your check-in on your iPhone.").foregroundStyle(.secondary)
+                    }
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle("Check-in")
+        }
+        .task { await load() }
+    }
+
+    private func answer(_ person: String, _ sleep: String) async {
+        do { try await client.answer(person, TempCheckAnswer(sleep: sleep)); WKHaptic.play(.success) } catch { WKHaptic.play(.failure) }
+        await load()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func load() async {
+        guard let me = try? await client.me() else { return }
+        guard let id = me.person else { shared = true; return }
+        person = id
+        check = try? await client.tempCheck(id)
+    }
+}
+
 // MARK: - Take now
 
 /// Medicines due now, with Taken and Snooze (10 minutes). What the server shares with the Watch's
