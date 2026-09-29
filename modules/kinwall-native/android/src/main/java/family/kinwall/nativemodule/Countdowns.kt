@@ -41,7 +41,7 @@ import kotlin.concurrent.thread
  */
 object Countdowns {
   const val CHANNEL = "countdowns"
-  private val IDS = mapOf("cooking" to 7101, "shopping" to 7102, "leaveBy" to 7103)
+  private val IDS = mapOf("cooking" to 7101, "shopping" to 7102, "leaveBy" to 7103, "medication" to 7104)
   private const val PREFS = "family.kinwall.countdowns"
   private const val SCHEDULE = "schedule"
   private const val MIN = 60_000L
@@ -49,6 +49,8 @@ object Countdowns {
   private const val DONE_FOR = 30 * MIN
   const val ACTION_ALARM = "family.kinwall.app.COUNTDOWN"
   const val ACTION_GOT_IT = "family.kinwall.app.GOT_IT"
+  const val ACTION_DOSE = "family.kinwall.app.DOSE"
+  private const val SNOOZE = 10 * MIN
   private const val LINK = "family.kinwall.app:/open?to="
 
   private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -135,7 +137,7 @@ object Countdowns {
     val title: String, val text: String, val ongoing: Boolean,
     val countdownTo: Long? = null, val until: Long? = null,
     val next: Long? = null, val link: String? = null, val chip: String? = null,
-    val publicTitle: String, val progress: Pair<Int, Int>? = null, val gotIt: Boolean = false,
+    val publicTitle: String, val progress: Pair<Int, Int>? = null, val gotIt: Boolean = false, val dose: Boolean = false,
   )
 
   /** `alert`: its own alarm (a timer that's up, a leave-by time that came) sounds again; other redraws are quiet. */
@@ -174,7 +176,11 @@ object Countdowns {
       val got = PendingIntent.getBroadcast(c, 0, Intent(c, CountdownReceiver::class.java).setAction(ACTION_GOT_IT), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
       b.addAction(0, "Got it", got)
     }
-    b.addAction(0, "Open", open)
+    if (look.dose) {
+      fun mark(action: String, code: Int) = PendingIntent.getBroadcast(c, code, Intent(c, CountdownReceiver::class.java).setAction(ACTION_DOSE).putExtra("action", action), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+      b.addAction(0, "Taken", mark("taken", 1))
+      b.addAction(0, "Snooze 10 min", mark("snooze", 2))
+    } else b.addAction(0, "Open", open)
     look.progress?.let { (done, total) ->
       if (Build.VERSION.SDK_INT >= 36) b.setStyle(NotificationCompat.ProgressStyle().addProgressSegment(NotificationCompat.ProgressStyle.Segment(total).setColor(accent)).setProgress(done))
       else b.setProgress(total, done, false)
@@ -236,6 +242,25 @@ object Countdowns {
         )
       }
     }
+    // A medicine that's due (web/src/liveActivity.ts): the headline and label are the web app's
+    // own, generic unless the device opted into names. Kind words only, never "missed". The page
+    // ends it on Snooze and starts it again after; with the page closed, it comes back by itself.
+    "medication" -> {
+      val until = time(p.get("windowEndsAt"))
+      val snoozed = p.optLong("snoozedUntil").takeIf { it > now }
+      val at = { t: Long -> android.text.format.DateFormat.getTimeFormat(c).format(t) }
+      if (now >= until) null
+      else Look(
+        title = "💊 ${p.optString("headline").ifEmpty { p.getString("label") }}", // "Time for…" / "Still time for…"
+        text = when {
+          snoozed != null -> "Snoozed · back at ${at(snoozed)}"
+          p.optString("stage") == "late" -> "Still time · until ${at(until)}"
+          else -> "Due now · still time until ${at(until)}"
+        },
+        ongoing = true, countdownTo = until, until = until, next = snoozed, link = "calendar",
+        publicTitle = "Medicine reminder", dose = true,
+      )
+    }
     else -> null
   }
 
@@ -281,6 +306,33 @@ object Countdowns {
     pi.cancel()
   }
 
+  // ---- Taken and Snooze ----
+
+  /** Marks the dose with the widgets' key, which belongs to the device's person (the server lets a
+   * person's own phone mark only theirs). Taken ends it; Snooze keeps it, saying when it's back,
+   * and comes back by itself then. The demo just does it; signed out or offline, nothing changes. */
+  fun dose(c: Context, action: String) {
+    val p = JSONObject(prefs(c).getString("medication", null) ?: return)
+    val body = JSONObject().put("date", p.getString("date")).put("time", p.getString("time")).put("action", action)
+    if (!send(c, "POST", "api/medications/${Uri.encode(p.getString("medicationId"))}/doses", body)) return
+    if (action == "snooze") {
+      prefs(c).edit().putString("medication", p.put("snoozedUntil", System.currentTimeMillis() + SNOOZE).toString()).apply()
+      show(c, "medication")
+    } else end(c, "medication")
+  }
+
+  /** A call with the widgets' key; true in the demo (nothing to save), false signed out or offline. */
+  private fun send(c: Context, method: String, path: String, body: JSONObject): Boolean {
+    val connection = Keychain.get(c, "family.kinwall.widgets")?.let { JSONObject(it) }
+      ?: return Keychain.get(c, "family.kinwall.demo") != null
+    val url = Uri.parse(connection.getString("baseURL")).buildUpon().appendEncodedPath(path).build().toString()
+    val request = Request.Builder().url(url)
+      .header("Authorization", "Bearer ${connection.getString("key")}")
+      .method(method, body.toString().toRequestBody("application/json".toMediaType()))
+      .build()
+    return try { OkHttpClient.Builder().callTimeout(8, TimeUnit.SECONDS).build().newCall(request).execute().use { it.isSuccessful } } catch (e: Exception) { false }
+  }
+
   // ---- Got it ----
 
   /** Ticks the trip's next item with the widgets' own key (src/sharedKey.ts), then moves on to the
@@ -290,16 +342,7 @@ object Countdowns {
     val p = JSONObject(prefs(c).getString("shopping", null) ?: return)
     val next = p.optJSONObject("next") ?: return
     val id = next.getString("id")
-    val connection = Keychain.get(c, "family.kinwall.widgets")?.let { JSONObject(it) }
-    if (connection != null) {
-      val url = Uri.parse(connection.getString("baseURL")).buildUpon().appendEncodedPath("api/lists/${Uri.encode(p.getString("listId"))}/items/${Uri.encode(id)}").build().toString()
-      val request = Request.Builder().url(url)
-        .header("Authorization", "Bearer ${connection.getString("key")}")
-        .patch("""{"done":true}""".toRequestBody("application/json".toMediaType()))
-        .build()
-      val ok = try { OkHttpClient.Builder().callTimeout(8, TimeUnit.SECONDS).build().newCall(request).execute().use { it.isSuccessful } } catch (e: Exception) { false }
-      if (!ok) return
-    } else if (Keychain.get(c, "family.kinwall.demo") == null) return
+    if (!send(c, "PATCH", "api/lists/${Uri.encode(p.getString("listId"))}/items/${Uri.encode(id)}", JSONObject().put("done", true))) return
     val upcoming = p.optJSONArray("upcoming") ?: JSONArray()
     val rest = JSONArray()
     var after = false
@@ -318,6 +361,11 @@ object Countdowns {
 class CountdownReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
+      Countdowns.ACTION_DOSE -> {
+        val action = intent.getStringExtra("action") ?: return
+        val done = goAsync()
+        thread { try { Countdowns.dose(context, action) } finally { done.finish() } }
+      }
       Countdowns.ACTION_GOT_IT -> {
         val done = goAsync() // a network call: off the main thread, within the receiver's time
         thread { try { Countdowns.gotIt(context) } finally { done.finish() } }
