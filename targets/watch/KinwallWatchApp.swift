@@ -2,8 +2,10 @@ import SwiftUI
 import WatchConnectivity
 import KinwallKit
 import WidgetKit
+import UserNotifications
 
-/// The Watch app (M4, docs/WIDGETS-AND-WATCH.md): Today, My chores and Lists. Its key comes from the
+/// The Watch app (M4, docs/WIDGETS-AND-WATCH.md): Today, My chores, Take now and Lists, plus haptic
+/// transition warnings (Transitions.swift). Its key comes from the
 /// iPhone app over WatchConnectivity and is kept in the Watch's own Keychain.
 @main
 struct KinwallWatchApp: App {
@@ -15,10 +17,12 @@ struct KinwallWatchApp: App {
                 TabView {
                     TodayView(client: KinwallClient(connection))
                     ChoresView(client: KinwallClient(connection))
+                    MedsView(client: KinwallClient(connection))
                     ListsView(client: KinwallClient(connection))
                 }
                 .tabViewStyle(.verticalPage)
                 .id(connection.key) // a new household (or key) starts fresh
+                .task { await Transitions.refresh(KinwallClient(connection)); Transitions.scheduleBackgroundRefresh() }
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "iphone").font(.title2).foregroundStyle(.secondary)
@@ -27,7 +31,14 @@ struct KinwallWatchApp: App {
                 .padding()
             }
         }
+        // Transition warnings (Transitions.swift) are rescheduled here too, while the app is closed.
+        .backgroundTask(.appRefresh(Transitions.refreshTask)) {
+            if let connection = try? SharedKeychain.widgetStore.load() { await Transitions.refresh(KinwallClient(connection)) }
+            await Transitions.scheduleBackgroundRefresh()
+        }
     }
+
+    init() { UNUserNotificationCenter.current().delegate = NotificationHandler.shared }
 }
 
 /// Receives the Watch's key from the iPhone app (src/sharedKey.ts, through modules/kinwall-native).

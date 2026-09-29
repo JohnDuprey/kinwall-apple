@@ -1,5 +1,6 @@
 import SwiftUI
 import KinwallKit
+import WidgetKit
 
 // MARK: - Today
 
@@ -133,6 +134,55 @@ struct ChoresView: View {
             (members, chores) = try await (m, c)
             failed = false
         } catch { failed = members.isEmpty }
+    }
+}
+
+// MARK: - Take now
+
+/// Medicines due now, with Taken and Snooze (10 minutes). What the server shares with the Watch's
+/// key: a person's own Watch sees their names; a shared one "Medicine". Hidden while none are due.
+struct MedsView: View {
+    let client: KinwallClient
+    @State private var due: DueDoses?
+    @State private var members: [Member] = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let due {
+                    if due.doses.isEmpty { Text("Nothing due right now").foregroundStyle(.secondary) }
+                    ForEach(due.doses) { d in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(members.first { $0.id == d.memberId }.map { "\($0.avatar ?? "") \($0.name)" } ?? "Someone").font(.headline)
+                            Text([d.name, d.dose].compactMap { $0 }.joined(separator: " ").isEmpty ? "Medicine" : [d.name, d.dose].compactMap { $0 }.joined(separator: " "))
+                                .font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                Button("Taken") { Task { await mark(d, .taken) } }.tint(.green)
+                                Button("Snooze") { Task { await mark(d, .snooze) } }
+                            }
+                            .buttonStyle(.bordered).font(.footnote)
+                        }
+                    }
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle("💊 Take now")
+        }
+        .task { await load() }
+    }
+
+    private func mark(_ d: DueDose, _ action: KinwallClient.DoseAction) async {
+        do { try await client.mark(d, action); WKHaptic.play(.success) } catch { WKHaptic.play(.failure) }
+        await load()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func load() async {
+        async let d = client.dueDoses()
+        async let m = client.members()
+        due = (try? await d) ?? DueDoses(names: false, doses: []) // 404: the family has medicines off
+        members = (try? await m) ?? members
     }
 }
 

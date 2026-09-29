@@ -2,8 +2,8 @@ import SwiftUI
 import WidgetKit
 import KinwallKit
 
-// Watch complications (docs/WIDGETS-AND-WATCH.md): Next event with the leave-by countdown, and
-// Chores left as a gauge. They read the Board with the Watch's key, which the Watch app keeps in
+// Watch complications (docs/WIDGETS-AND-WATCH.md): Next event with the leave-by countdown,
+// Chores left as a gauge, and Take now (how many medicines are due). They read the Board with the Watch's key, which the Watch app keeps in
 // the shared Keychain group (SharedKeychain.widgetStore).
 
 @main
@@ -11,6 +11,7 @@ struct KinwallComplications: WidgetBundle {
     var body: some Widget {
         NextEventComplication()
         ChoresLeftComplication()
+        MedsDueComplication()
     }
 }
 
@@ -115,5 +116,54 @@ struct ChoresLeftComplication: Widget {
         .configurationDisplayName("Chores left")
         .description("A ring that fills as the family's chores get done.")
         .supportedFamilies([.accessoryCircular])
+    }
+}
+
+// MARK: - Meds due
+
+/// How many doses are due now, never which medicines: a watch face is on show.
+struct MedsEntry: TimelineEntry { let date: Date; let count: Int? }
+
+struct MedsProvider: TimelineProvider {
+    func placeholder(in context: Context) -> MedsEntry { MedsEntry(date: .now, count: 1) }
+    func getSnapshot(in context: Context, completion: @escaping (MedsEntry) -> Void) { completion(placeholder(in: context)) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<MedsEntry>) -> Void) {
+        nonisolated(unsafe) let completion = completion
+        Task {
+            var count: Int?
+            if let connection = try? SharedKeychain.widgetStore.load() { count = (try? await KinwallClient(connection).dueDoses())?.doses.count ?? 0 }
+            completion(Timeline(entries: [MedsEntry(date: .now, count: count)], policy: .after(.now.addingTimeInterval(15 * 60))))
+        }
+    }
+}
+
+struct MedsDueComplication: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MedsDue", provider: MedsProvider()) { entry in
+            MedsDueView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+        }
+        .configurationDisplayName("Take now")
+        .description("How many medicines are due. Names stay off the watch face.")
+        .supportedFamilies([.accessoryCircular, .accessoryInline, .accessoryCorner])
+    }
+}
+
+struct MedsDueView: View {
+    let entry: MedsEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        let n = entry.count ?? 0
+        switch family {
+        case .accessoryInline: Text(n == 0 ? "💊 Nothing due" : "💊 \(n) due")
+        case .accessoryCorner: Image(systemName: "pills.fill").widgetLabel { Text(n == 0 ? "None due" : "\(n) due") }
+        default:
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 0) {
+                    Image(systemName: "pills.fill").font(.caption)
+                    Text(entry.count == nil ? "–" : "\(n)").font(.title3.weight(.bold)).widgetAccentable()
+                }
+            }
+        }
     }
 }

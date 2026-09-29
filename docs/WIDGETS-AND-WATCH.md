@@ -84,6 +84,7 @@ Checked in the iOS 27 Simulator (iPhone 17 Pro) with the demo: all three start a
 |---|---|
 | **Next event** with the leave-by countdown, surfacing in the Smart Stack as it nears | First |
 | **Chores left** as a gauge | First |
+| **Take now:** how many medicines are due (circular, inline, corner), never their names | Built |
 | **Groceries** open count | Later |
 | **Points** this week | Later |
 
@@ -92,7 +93,7 @@ Checked in the iOS 27 Simulator (iPhone 17 Pro) with the demo: all three start a
 | Idea | Tag |
 |---|---|
 | **Double tap** (Series 9 and later) ticks off the top chore or list item on screen | Later |
-| **Haptic transition warnings:** a tap on the wrist 10 minutes before the next event, like the wall's transition warnings, from local notifications | First |
+| **Haptic transition warnings:** a tap on the wrist before the next event, like the wall's transition warnings, from local notifications | Built |
 | **A child's watch without an iPhone** (Apple's Family Setup): the watch pairs itself with a code an admin approves, the same flow as a wall display. Chores, points and Now & Next, all on the wrist. | Later |
 
 ## Siri, Shortcuts and Spotlight (App Intents)
@@ -133,6 +134,10 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 
   They run in the app's process with the widgets' key; the ones that open the app hand their link to the web app through the native module (`PendingLink`), so one that launches the app isn't lost. In the demo they answer from the demo family and save nothing. Checked in the iOS 26.5 Simulator (iPhone 17 Pro): What's on today, Mark a chore done (with its chore and person pickers) and Night screen. The earlier "Couldn't find AppShortcutsProvider" came from the Simulator build being signed ad hoc, with no team; `scripts/sign-simulator.sh` re-signs it (README).
 - **Take now and Clock & next (built 2026-09-29):** Take now reads `GET /api/medications/due` with the widgets' key every 15 minutes; the Home Screen size has **Taken**, which marks the first dose (`MarkDoseIntent`). The medicines feature turned off (404) shows "Nothing due". Checked in the Simulator with the demo: both on the Home Screen, and Take now and Chores left on the Lock Screen.
+- **Watch: Take now, transition warnings, meds complication (built 2026-09-29):**
+  - **Take now** is a fourth page in the Watch app: the doses due now with **Taken** and **Snooze** (10 minutes), straight to the server with the Watch's key (`POST /api/medications/{id}/doses`). A person's own Watch shows their medicines' names, as the server allows; otherwise "Medicine".
+  - **Transition warnings** (`targets/watch/Transitions.swift`): the Watch's person (picked on My chores) gets their transition reminders as local notifications, computed on the Watch from their next 24 hours of events (`KinwallKit TransitionWarnings`, the server's rule: before the leave-by time when they have leave-by on, else before the start). Rescheduled when the app opens and on background refresh about every 30 minutes. Limits: no push, so an event added elsewhere is only covered after the next refresh; watchOS keeps 64 pending notifications (48 used); in the background watchOS plays its own notification tap, and the distinct pattern (three rising taps) plays only while the app is frontmost; meal prep times aren't in the events API, so a meal counts from its start.
+  - **Take now complication:** the count of doses due, never names.
 - **Spotlight (built 2026-09-29):** the family's recipes, lists and contacts, by name with a short line ("Recipe · 35 min · …", "Shopping list · 12 left", "Contact · Grandparent"), never notes, phone numbers, addresses or health entries. `src/spotlight.ts` fetches them with the widgets' key when the app opens or comes back (at most every 10 minutes) and hands them to `modules/kinwall-native/ios/Spotlight.swift`, which replaces the app's items; sign-out clears them. The demo shows a few of the demo family's. Each item's identifier is its app link, so a tap opens its page (`native/ios/AppHooks.swift`). The web app opens Lists on the list (`?list=`); a recipe or contact opens Meals or Contacts until it reads `?recipe=` and `?contact=`. Checked in the Simulator: "Rosa" finds Grandma Rosa and the tap opens Contacts.
 - **Next:** install on a real iPhone and Watch; check Siri, reminder taps and complications there.
 
