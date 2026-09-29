@@ -1,6 +1,7 @@
 import { FlexWidget, TextWidget, registerWidgetTaskHandler, requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget'
 import { type Board, board, nowAndNext } from './api'
 import { widgetConnection } from './sharedKey'
+import KinwallNative from '../modules/kinwall-native'
 
 // Android home-screen widget: Now & Next plus chores left, rendered from JavaScript in a headless
 // task (react-native-android-widget), so it reuses the API client and the widgets' key. Tapping
@@ -30,8 +31,27 @@ function Widget({ b, problem }: { b: Board | null; problem?: string }) {
   )
 }
 
+/** While the demo is open (its flag, src/demo.ts), the widget shows a sample family, like the iOS
+ * widgets' built-in data: something on now, a leave-by next, and chores left. */
+function sampleBoard(now = Date.now()): Board {
+  const at = (min: number) => new Date(now + min * 60_000).toISOString()
+  const today = 'demo'
+  return {
+    today,
+    events: [
+      { id: 'reading', title: 'Reading Time', start: at(-15), end: at(30), allDay: false, date: today },
+      { id: 'piano', title: 'Piano Lesson', start: at(70), end: at(115), leaveAt: at(45), allDay: false, date: today },
+    ],
+    chores: [
+      { memberId: 'maya', name: 'Maya', avatar: null, remaining: 1, total: 3 },
+      { memberId: 'leo', name: 'Leo', avatar: null, remaining: 2, total: 4 },
+    ],
+  }
+}
+
 async function render() {
   const c = await widgetConnection()
+  if (!c && (await KinwallNative?.keychainGet('family.kinwall.demo', true).catch(() => null))) return <Widget b={sampleBoard()} problem="Demo" />
   if (!c) return <Widget b={null} problem="Open Kinwall to sign in" />
   const b = await board(c, 1).catch(() => null)
   return b ? <Widget b={b} /> : <Widget b={null} problem="Can't reach Kinwall right now" />
