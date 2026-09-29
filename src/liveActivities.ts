@@ -1,10 +1,13 @@
+import * as SecureStore from 'expo-secure-store'
+import { Platform } from 'react-native'
 import KinwallNative, { type ActivityToken } from '../modules/kinwall-native'
 import { api, type Connection } from './api'
+import { type LeaveByEvent, type LeaveByPerson, leaveByAlarms } from './leaveBy'
 
 // The Live Activities on iPhone (modules/kinwall-native/ios/LiveActivities.swift draws nothing
 // itself; targets/widgets/LiveActivities.swift does): the web app says what to show
-// (web/src/native.ts tellAppActivity in the kinwall repo) and WebShell hands it over here. No-ops
-// on Android, where the native module is null.
+// (web/src/native.ts tellAppActivity in the kinwall repo) and WebShell hands it over here. On
+// Android the same messages show ongoing notifications (modules/kinwall-native/android Countdowns.kt).
 
 const KINDS = ['cooking', 'shopping', 'leaveBy', 'medication']
 type Colors = { bg: string; fg: string; accent: string } | null
@@ -16,12 +19,13 @@ export function showActivity(kind: unknown, payload: unknown, colors: Colors) {
 export function endActivity(kind: unknown) {
   if (typeof kind === 'string' && KINDS.includes(kind)) KinwallNative?.activityEnd(kind).catch(() => {})
 }
-/** Sign-out: nothing of this household stays on the Lock Screen. */
-export const endAllActivities = () => { KinwallNative?.activityEnd(null).catch(() => {}) }
+/** Sign-out: nothing of this household stays on the Lock Screen (on Android, no leave-by alarm either). */
+export const endAllActivities = () => { KinwallNative?.activityEnd(null).catch(() => {}); SecureStore.deleteItemAsync(OWNER).catch(() => {}) }
 /** Ones whose time passed while the app was closed. */
 export const endStaleActivities = () => { KinwallNative?.activityEndStale().catch(() => {}) }
 
-/** For the page (window.kinwallNative.liveActivities): allowed in iPhone Settings; null on Android. */
+/** For the page (window.kinwallNative.liveActivities): allowed in iPhone Settings, or on Android
+ * notifications and the "Timers and countdowns" channel on. */
 export function activitiesEnabled(): boolean | null {
   try { return KinwallNative ? KinwallNative.activitiesEnabled() : null } catch { return null }
 }
@@ -55,4 +59,22 @@ export function showSampleMedication() {
   if (!__DEV__) return
   const now = Date.now()
   showActivity('medication', { medicationId: 'med1', date: new Date(now).toISOString().slice(0, 10), time: '12:00', memberName: 'Sam', label: "Sam's medicine", headline: "Time for Sam's medicine", dueAt: new Date(now - 5 * 60_000).toISOString(), windowEndsAt: new Date(now + 2 * 3600_000).toISOString(), stage: 'due' }, null)
+}
+
+// Android, with no push: the leave-by and start-prep countdowns are scheduled ahead as exact alarms
+// from the event list the reminders fetch (src/reminders.ts), on every sync and background refresh,
+// so they show with the app closed. They're this device's person's (GET /api/me with the page's
+// key: the owner an admin set; the widgets' key may not carry it, so it's kept for later).
+const OWNER = 'leaveByOwner'
+export async function scheduleLeaveBy(c: Connection, events: LeaveByEvent[]) {
+  if (Platform.OS !== 'android' || !KinwallNative) return
+  if (device) {
+    const me = await api<{ owner: string | null }>(device.baseURL, device.key, 'GET', 'api/me').catch(() => null)
+    if (me) await SecureStore.setItemAsync(OWNER, me.owner ?? '').catch(() => {})
+  }
+  const owner = await SecureStore.getItemAsync(OWNER).catch(() => null)
+  const people = owner && owner !== 'shared' ? await api<LeaveByPerson[]>(c.baseURL, c.key, 'GET', 'api/members').catch(() => null) : []
+  if (!people) return // offline: the alarms already set stay
+  const me = people.find((p) => p.id === owner)
+  await KinwallNative.leaveBySchedule(JSON.stringify(me ? leaveByAlarms(events, me, Date.now()) : [])).catch(() => {})
 }

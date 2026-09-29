@@ -12,3 +12,5 @@ xcuserdata/
 .swiftpm/
 *.tsbuildinfo
 expo-env.d.ts
+# Gradle output of the local Expo module
+modules/*/android/build/

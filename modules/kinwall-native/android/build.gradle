@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'family.kinwall'
+version = '0.1.0'
+
+android {
+  namespace "family.kinwall.nativemodule"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  // Already in every React Native app; "Got it" needs PATCH, which HttpURLConnection can't send.
+  implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+}

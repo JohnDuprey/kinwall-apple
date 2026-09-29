@@ -11,13 +11,15 @@ type KinwallNative = {
   /** No kind: every one (sign-out). */
   activityEnd(kind: string | null): Promise<void>
   activityEndStale(): Promise<void>
-  /** Live Activities allowed in iPhone Settings. */
+  /** Live Activities allowed in iPhone Settings; on Android, notifications and the countdowns' channel on. */
   activitiesEnabled(): boolean
   /** iOS: Spotlight's items (src/spotlight.ts), replacing the last set; cleared on sign-out. */
   spotlightSet?(items: { id: string; title: string; description: string; kind: string }[]): Promise<void>
   spotlightClear?(): Promise<void>
   /** iOS: a family.kinwall.app:/open link from Siri or a Control (native/ios/OpenIntents.swift), once. */
   takeLink?(): string | null
+  /** Android: the next day's leave-by alarms (src/leaveBy.ts), replacing the last ones. */
+  leaveBySchedule(alarms: string): Promise<void>
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription
   /** iOS: takeLink() has one. */
   addListener(event: 'link', listener: () => void): EventSubscription
@@ -26,5 +28,6 @@ type KinwallNative = {
 }
 export type ActivityToken = { kind: 'start' | 'update'; token: string; activity?: string; endsAt?: string }
 
-/** Null on Android: widgets there render from JavaScript (src/widgets.tsx), and there's no Watch link. */
+/** On Android (android/: the keys and the countdowns as ongoing notifications) the widget and Watch
+ * calls do nothing: widgets there render from JavaScript (src/widgets.tsx), and there's no Watch. */
 export default requireOptionalNativeModule<KinwallNative>('KinwallNative')

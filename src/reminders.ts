@@ -4,7 +4,8 @@ import * as TaskManager from 'expo-task-manager'
 import { Platform } from 'react-native'
 import { type EventInstance, events } from './api'
 import { widgetConnection } from './sharedKey'
-import { endStaleActivities } from './liveActivities'
+import { endStaleActivities, scheduleLeaveBy } from './liveActivities'
+import type { LeaveByEvent } from './leaveBy'
 
 // Event reminders as local notifications (docs/WIDGETS-AND-WATCH.md): the app can't receive the
 // server's web push, so it schedules the same reminders itself from the event list, using each
@@ -36,6 +37,7 @@ export async function refreshReminders(): Promise<void> {
   // ponytail: fetch failure keeps the reminders already scheduled; they may be stale until the next refresh.
   const list = await events(connection, new Date(now - 3600_000), new Date(now + HORIZON)).catch(() => null)
   if (!list) return
+  await scheduleLeaveBy(connection, list as LeaveByEvent[]) // Android: the leave-by countdowns
   const planned = list.flatMap((e) => requestsFor(e, now)).sort((a, b) => a.fire - b.fire).slice(0, CAP)
   const old = (await Notifications.getAllScheduledNotificationsAsync()).filter((r) => r.identifier.startsWith(PREFIX))
   await Promise.all(old.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier)))
@@ -48,13 +50,15 @@ export async function clearReminders(): Promise<void> {
   await Promise.all(old.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier)))
 }
 
-// A few times a day, so reminders for events added elsewhere are scheduled even if the app isn't opened.
+// A few times a day, so reminders for events added elsewhere are scheduled even if the app isn't
+// opened. Android runs it every 15 minutes (WorkManager's shortest, with a network), since the
+// leave-by alarms are only as fresh as the last run; signed out it stops at the missing key.
 TaskManager.defineTask(REFRESH_TASK, async () => {
   await refreshReminders()
   endStaleActivities() // a leave-by whose event started while the app was closed
   return BackgroundTask.BackgroundTaskResult.Success
 })
-export const scheduleBackgroundRefresh = () => BackgroundTask.registerTaskAsync(REFRESH_TASK, { minimumInterval: 240 }).catch(() => {})
+export const scheduleBackgroundRefresh = () => BackgroundTask.registerTaskAsync(REFRESH_TASK, { minimumInterval: Platform.OS === 'android' ? 15 : 240 }).catch(() => {})
 
 // ---- Building them (mirrors the server's reminder text in server/src/notify.ts) ----
 

@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Countdowns.kt: re-arm the leave-by alarms after a restart, and ask Android 16 to show the
+       countdowns as Live Updates (the status bar chip and the top of the Lock Screen). -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+  <application>
+    <receiver android:name="family.kinwall.nativemodule.CountdownReceiver" android:exported="false" />
+    <receiver android:name="family.kinwall.nativemodule.CountdownBootReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

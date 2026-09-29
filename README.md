@@ -55,6 +55,8 @@ npx expo prebuild -p android --clean
 npx expo run:android            # an emulator or a connected device
 ```
 
+The Live Activities show on Android as ongoing notifications on their own **Timers and countdowns** channel: a cooking timer, a shopping trip (with **Got it** and **Open**) and the next leave-by or start-prep time, with countdowns that tick on their own. Android 16 promotes them to Live Updates (the status bar chip and the top of the Lock Screen). Leave-by and prep-by times are also scheduled ahead as exact alarms, so they appear with the app closed and no push. Without **Alarms & reminders** allowed for Kinwall (Settings → Apps → Kinwall), they still appear, possibly a few minutes late. See [docs/PLAN.md](docs/PLAN.md#android-countdowns-built-2026-09-29).
+
 ## Sharing a recipe link to Kinwall
 
 A recipe page can be shared to Kinwall from Safari, Chrome or any app with a Share button (see Kinwall's [Meals docs](https://github.com/JohnDuprey/kinwall/blob/main/docs/using/meals.md#sharing-from-your-phone)).
