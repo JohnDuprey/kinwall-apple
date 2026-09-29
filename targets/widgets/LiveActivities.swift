@@ -1,5 +1,6 @@
 import ActivityKit
 import AppIntents
+import KinwallKit
 import SwiftUI
 import WidgetKit
 
@@ -32,7 +33,8 @@ struct KinwallLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(context.headline).font(.headline).lineLimit(2)
-                        if let line = context.islandLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
+                        if context.attributes.kind == "shopping" { ShoppingLineView(context: context).font(.subheadline).foregroundStyle(.secondary) }
+                        else if let line = context.islandLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
                         if context.attributes.kind == "shopping" { ShoppingButtons(context: context, onDark: true) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
@@ -80,19 +82,20 @@ extension ActivityViewContext<KinwallActivityAttributes> {
     var subline: String {
         switch attributes.kind {
         case "cooking": [s.detail, s.count > 0 ? "+\(s.count) more" : nil, attributes.name].compactMap { $0 }.joined(separator: " · ") // the step first; the recipe fits if it can
-        // "Shaws · 5 left · next: Dairy"
-        case "shopping": [attributes.name, "\(s.count) left", s.detail.map { "next: \($0)" }].compactMap { $0 }.joined(separator: " · ")
         default: attributes.name
         }
     }
 
-    /// The expanded island's second line (its leading region already names the recipe, store or event).
+    /// The expanded island's second line for a cooking timer (its leading region already names the recipe).
     var islandLine: String? {
-        switch attributes.kind {
-        case "cooking": [s.detail, s.count > 0 ? "+\(s.count) more" : nil].compactMap { $0 }.joined(separator: " · ")
-        case "shopping": ["\(s.count) left", s.detail.map { "next: \($0)" }].compactMap { $0 }.joined(separator: " · ")
-        default: nil
-        }
+        attributes.kind == "cooking" ? [s.detail, s.count > 0 ? "+\(s.count) more" : nil].compactMap { $0 }.joined(separator: " · ") : nil
+    }
+
+    /// Shopping: where the current item is, then what's after it (KinwallKit ShoppingLine). `detail`
+    /// is the current item's aisle; the queue carries it first, then up to four after it.
+    var shoppingLine: ShoppingLine {
+        let after = (s.queue ?? []).drop { $0.id != s.itemId }.dropFirst().first
+        return ShoppingLine(aisle: s.detail, next: after.map { ($0.title, $0.aisle) }, left: s.count)
     }
 
     var theme: ActivityTheme { ActivityTheme(attributes.colors) }
@@ -126,7 +129,10 @@ struct LockScreenActivity: View {
                 Trailing(context: context).font(.title2.weight(.semibold)).foregroundStyle(theme.accent).lineLimit(1).frame(maxWidth: 110, alignment: .trailing)
             }
             Text(context.headline).font(.headline).foregroundStyle(context.due ? theme.accent : theme.fg).lineLimit(2)
-            if context.attributes.kind == "shopping" { ShoppingButtons(context: context) }
+            if context.attributes.kind == "shopping" {
+                ShoppingLineView(context: context).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75))
+                ShoppingButtons(context: context)
+            }
         }
         .padding(16)
     }
@@ -136,9 +142,26 @@ struct LockScreenActivity: View {
         switch context.attributes.kind {
         case "leave": context.due ? context.attributes.name : "\(context.attributes.name) · leave in"
         case "prep": context.due ? context.attributes.name : "\(context.attributes.name) · start prep in"
-        // The count is on the right: "Shaws · next: Dairy".
-        case "shopping": [context.attributes.name, context.s.detail.map { "next: \($0)" }].compactMap { $0 }.joined(separator: " · ")
+        // The count is on the right; where things are goes under the item (ShoppingLineView).
+        case "shopping": context.attributes.name
         default: context.subline
+        }
+    }
+}
+
+/// "Dairy · then Dishwasher tablets (Aisle 17)": only the next item's name gives way when it's long,
+/// never where things are. Nothing once the trip is done.
+struct ShoppingLineView: View {
+    let context: ActivityViewContext<KinwallActivityAttributes>
+    var body: some View {
+        let line = context.shoppingLine
+        if context.s.count > 0, !line.text.isEmpty {
+            HStack(spacing: 0) {
+                Text(line.lead).layoutPriority(2)
+                if !line.name.isEmpty { Text(line.name).truncationMode(.tail) }
+                if !line.tail.isEmpty { Text(line.tail).layoutPriority(2) }
+            }
+            .lineLimit(1)
         }
     }
 }

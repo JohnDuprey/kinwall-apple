@@ -9,9 +9,9 @@ import Foundation
 
 public struct KinwallActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        /// Cooking: the timer's name. Shopping: the next item ("" when all done). Leave / prep: the headline.
+        /// Cooking: the timer's name. Shopping: the item to get now ("" when all done). Leave / prep: the headline.
         public var title: String
-        /// Cooking: "Step 3 · Simmer". Shopping: the next item's aisle. Leave / prep: the "now" line.
+        /// Cooking: "Step 3 · Simmer". Shopping: that item's aisle. Leave / prep: the "now" line.
         public var detail: String?
         /// Cooking: when the timer's up. Leave / prep: the leave-by or start-prep time.
         public var date: Date?
@@ -19,7 +19,8 @@ public struct KinwallActivityAttributes: ActivityAttributes {
         public var count: Int
         /// Cooking: the timer rang.
         public var done: Bool
-        /// Shopping: the next item, then the few after it, so "Got it" can move on without the app's page.
+        /// Shopping: the item to get now, then the few after it, so "Got it" can move on without the
+        /// app's page and the activity can say what's after it.
         public var itemId: String?
         public var queue: [Entry]?
 
