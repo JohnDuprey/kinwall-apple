@@ -1,0 +1,31 @@
+# release-please (release-please-config.json): keeps a "chore: release x.y.z" PR open with the
+# next version and CHANGELOG.md from Conventional Commits on main. Merging it tags vX.Y.Z and makes
+# the GitHub Release. A release made with GITHUB_TOKEN starts no other workflows, so the unsigned
+# app builds are called from here (build.yml) and attached to it.
+# Repo setting needed: Settings -> Actions -> General -> "Allow GitHub Actions to create and
+# approve pull requests".
+name: Release
+on:
+  push:
+    branches: [main]
+permissions: {}
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+  builds:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
