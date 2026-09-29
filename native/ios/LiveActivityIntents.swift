@@ -50,7 +50,7 @@ enum GotItError: Error, CustomLocalizedStringResourceConvertible {
 
 // Taken and Snooze on the medicine Live Activity (targets/widgets/LiveActivities.swift): the dose is
 // marked with the widgets' key, which belongs to the device's person, so the server lets a person's
-// own phone mark only theirs. Taken ends the activity; Snooze keeps it, saying when it's back.
+// own phone mark only theirs. Both end the activity; the web app starts it again when a snooze runs out.
 struct MarkDoseActivityIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Mark a dose"
     static let isDiscoverable = false
@@ -68,15 +68,9 @@ struct MarkDoseActivityIntent: LiveActivityIntent {
         } else if (try? SharedKeychain.demoStore.load()) == nil {
             throw GotItError.signedOut
         } // the demo: nothing to save
+        // Either way it goes: Taken is done, and after a snooze the web app starts it again when it's due.
         for activity in Activity<KinwallActivityAttributes>.activities where activity.attributes.dose == .init(medicationId: medicationId, date: date, time: time) {
-            if action == "snooze" {
-                var s = activity.content.state
-                s.detail = "snoozed"
-                s.date = .now.addingTimeInterval(10 * 60)
-                await activity.update(ActivityContent(state: s, staleDate: activity.attributes.endsAt))
-            } else {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
         return .result()
     }

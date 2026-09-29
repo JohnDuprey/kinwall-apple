@@ -76,7 +76,7 @@ extension ActivityViewContext<KinwallActivityAttributes> {
         switch attributes.kind {
         case "cooking": due ? "Done: \(s.title)" : s.title
         case "shopping": s.count == 0 ? "All done at \(attributes.name)" : s.title.isEmpty ? "\(s.count) left" : s.title
-        case "medication": attributes.name // the web app's label, generic unless the device opted into names
+        case "medication": s.title // the web app's headline ("Time for Maya's medicine")
         default: due ? (s.detail ?? "Time to go") : s.title
         }
     }
@@ -102,14 +102,10 @@ extension ActivityViewContext<KinwallActivityAttributes> {
 
     var theme: ActivityTheme { ActivityTheme(attributes.colors) }
 
-    /// Kind words only, never "missed": "Due now · still time until 8:00 PM", "Snoozed · back at 7:40 PM".
+    /// Kind words only, never "missed": "Due now · still time until 8:00 PM", "Still time · until 8:00 PM".
     var medicationLine: String {
         let until = (attributes.endsAt ?? s.date).map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
-        switch s.detail {
-        case "snoozed": return "Snoozed · back at \((s.date ?? .now).formatted(date: .omitted, time: .shortened))"
-        case "late": return "Still time · until \(until)"
-        default: return "Due now · still time until \(until)"
-        }
+        return s.detail == "late" ? "Still time · until \(until)" : "Due now · still time until \(until)"
     }
 }
 
@@ -160,7 +156,7 @@ struct LockScreenActivity: View {
         case "prep": context.due ? context.attributes.name : "\(context.attributes.name) · start prep in"
         // The count is on the right; where things are goes under the item (ShoppingLineView).
         case "shopping": context.attributes.name
-        case "medication": context.s.title.isEmpty ? "Medicine" : "For \(context.s.title)"
+        case "medication": context.attributes.name // the web app's label, generic unless the device opted into names
         default: context.subline
         }
     }

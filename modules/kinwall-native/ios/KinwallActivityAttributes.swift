@@ -10,13 +10,13 @@ import Foundation
 public struct KinwallActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         /// Cooking: the timer's name. Shopping: the item to get now ("" when all done). Leave / prep: the headline.
-        /// Medication: whose it is.
+        /// Medication: the web app's headline ("Time for Maya's medicine").
         public var title: String
         /// Cooking: "Step 3 · Simmer". Shopping: that item's aisle. Leave / prep: the "now" line.
-        /// Medication: "due" or "late" (still inside its window), or "snoozed".
+        /// Medication: "due" or "late" (still inside its window).
         public var detail: String?
         /// Cooking: when the timer's up. Leave / prep: the leave-by or start-prep time. Medication: the
-        /// end of its window (or, snoozed, when it's back).
+        /// end of its window.
         public var date: Date?
         /// Cooking: other timers running. Shopping: items left.
         public var count: Int

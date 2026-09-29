@@ -50,9 +50,9 @@ export function setLeaveByPush(on: boolean) {
 KinwallNative?.addListener('activityToken', (t) => { if (t.kind === 'start') start = t; else updates.push(t); flush() })
 
 /** Debug builds only: a sample medicine Live Activity (family.kinwall.app:/open?debug=medication),
- * for trying it before the web app sends one. The demo family's Sam, never real data. */
+ * in the shape the web app sends. The demo family's Sam, never real data. */
 export function showSampleMedication() {
   if (!__DEV__) return
   const now = Date.now()
-  showActivity('medication', { medicationId: 'med1', date: new Date(now).toISOString().slice(0, 10), time: '12:00', memberName: 'Sam', label: 'Medicine', dueAt: new Date(now - 5 * 60_000).toISOString(), windowEndsAt: new Date(now + 2 * 3600_000).toISOString(), stage: 'due' }, null)
+  showActivity('medication', { medicationId: 'med1', date: new Date(now).toISOString().slice(0, 10), time: '12:00', memberName: 'Sam', label: "Sam's medicine", headline: "Time for Sam's medicine", dueAt: new Date(now - 5 * 60_000).toISOString(), windowEndsAt: new Date(now + 2 * 3600_000).toISOString(), stage: 'due' }, null)
 }

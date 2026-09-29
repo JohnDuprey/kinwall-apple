@@ -81,7 +81,7 @@ enum LiveActivities {
 
     private struct Cooking: Decodable { let recipe: String; let timer: String; let step: String; let endsAt: Double; let done: Bool; let more: Int }
     private struct Shopping: Decodable { let listId: String; let store: String; let left: Int; let next: Attributes.Entry?; let upcoming: [Attributes.Entry] }
-    private struct Medication: Decodable { let medicationId: String; let date: String; let time: String; let memberName: String; let label: String; let windowEndsAt: String; let stage: String }
+    private struct Medication: Decodable { let medicationId: String; let date: String; let time: String; let label: String; let headline: String; let windowEndsAt: String; let stage: String }
     private struct LeaveBy: Decodable { let activity: String; let eventId: String; let title: String; let prep: Bool; let at: String; let endsAt: String; let headline: String; let urgent: String }
 
     private static func date(_ iso: String) -> Date? {
@@ -110,7 +110,7 @@ enum LiveActivities {
             let p = try decoder.decode(Medication.self, from: data)
             guard let until = date(p.windowEndsAt) else { return nil }
             let attributes = Attributes(kind: "medication", name: p.label, endsAt: until, colors: colors, dose: .init(medicationId: p.medicationId, date: p.date, time: p.time))
-            return (attributes, .init(title: p.memberName, detail: p.stage, date: until), until)
+            return (attributes, .init(title: p.headline, detail: p.stage, date: until), until)
         default:
             return nil
         }
