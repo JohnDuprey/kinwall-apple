@@ -230,9 +230,12 @@ struct ActivityTheme {
     /// The Dynamic Island is always black: the dark accent reads on it.
     let accentOnDark: Color
     init(_ c: KinwallActivityAttributes.Colors?) {
-        bg = Color(hex: c?.bg) ?? Color(light: "#FFFBF5", dark: "#1C1712")
-        fg = Color(hex: c?.fg) ?? Color(light: "#3A2E27", dark: "#F3EAE0")
-        accent = Color(hex: c?.accent) ?? Color(light: "#A5613F", dark: "#FF9E7A")
+        // Without the family's colors (the demo, a fresh sign-in): Kinwall's light ones, fixed. The
+        // background tint and the text resolve light and dark differently on the Lock Screen, so
+        // dynamic colors left light text on a light card.
+        bg = Color(hex: c?.bg) ?? Color(hex: "#FFFBF5")!
+        fg = Color(hex: c?.fg) ?? Color(hex: "#3A2E27")!
+        accent = Color(hex: c?.accent) ?? Color(hex: "#A5613F")!
         accentOnDark = Color(hex: "#FF9E7A")!
     }
 }
@@ -241,9 +244,5 @@ extension Color {
     init?(hex: String?) {
         guard let hex, hex.count == 7, hex.first == "#", let v = Int(hex.dropFirst(), radix: 16) else { return nil }
         self.init(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
-    }
-    init(light: String, dark: String) {
-        let l = UIColor(Color(hex: light)!), d = UIColor(Color(hex: dark)!)
-        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? d : l })
     }
 }
