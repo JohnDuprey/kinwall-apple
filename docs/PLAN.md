@@ -124,7 +124,8 @@ What waits for the paid membership is Apple push: starting the leave-by activity
 2. Under **Keys**, create a key with **Apple Push Notifications service (APNs)**. Download the `.p8` (once), and note its Key ID and the Team ID.
 3. Build with `KINWALL_PUSH=1 CI=1 npx expo prebuild --clean`, signed with the paid team. For TestFlight and the App Store, `aps-environment` must be `production` (expo-notifications writes `development`; set it in `withLocalOnly` for release builds).
 4. On the Kinwall server: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY` (the `.p8` contents, a secret), `APNS_BUNDLE_ID=family.kinwall.app`, and `APNS_SANDBOX=1` while testing builds installed from Xcode.
-5. Hosted (Cloudflare Workers): APNs only speaks HTTP/2 and a Worker's `fetch` doesn't, so kinwall-cloud has to pass an `APNS_SEND` relay (kinwall `docs/contributing/embedding.md`). Docker and Node send directly.
+5. Hosted (Cloudflare Workers): nothing extra. A deployed Worker reaches APNs with a plain `fetch` (Cloudflare's edge speaks HTTP/2 to Apple); local `wrangler dev` on macOS can't, so test on a deployed Worker. Docker and Node use Node's HTTP/2 client. `APNS_SEND` (a relay) is only an optional override.
+7. Self-hosted servers: only the publisher's key can sign pushes for the official Kinwall app, so a self-hosted server can't push to it with its own key. Plan (not built): a push gateway at push.kinwall.family, itself a Worker, that relays Live Activity pushes for self-hosted servers. Until then, on self-hosted, the app starts leave-by activities only while it's open.
 6. Check: give a person transition reminders, set their phone's owner to them (Settings → Access), allow notifications, close the app, and add an event with travel time 35 minutes out. The Live Activity should appear at the first reminder and go away when the event starts.
 
 ## Server work (in the `kinwall` repo)
@@ -165,6 +166,7 @@ None is needed for M0 to M5; everything above uses existing endpoints. Nice-to-h
 - [ ] **Sign in with Apple (4.8)** only if a third-party account login (for example "Sign in with Google") is ever added. Calendar sync with Google doesn't count.
 - [ ] **Only documented APIs.** The share extension imports inside the sheet (no opening the app through the responder chain).
 - [ ] **Apple Developer Program** membership (M6). A Personal Team can't submit.
+- [ ] **Live Activities and push.** Push-based Live Activities aren't needed for review: the cooking timer, shopping trip and open-app leave-by work without them. Only builds that use Apple push get the entitlement (`KINWALL_PUSH=1` at prebuild), and the listing, screenshots and review notes don't promise closed-app countdowns until push is live.
 
 ## Risks
 
