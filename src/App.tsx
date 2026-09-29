@@ -13,6 +13,7 @@ import { ServerEntry } from './ServerEntry'
 import { type Session, freshTokens, loadSession, signOut } from './session'
 import { syncWatch } from './sharedKey'
 import { routeFor } from './links'
+import { syncSpotlight } from './spotlight'
 import { endAllActivities, endStaleActivities } from './liveActivities'
 import { SignIn } from './SignIn'
 import { WebShell } from './WebShell'
@@ -60,10 +61,11 @@ export default function App() {
     if (typeof r === 'string') setRoute(r)
   }, [tapped])
 
-  // Reminders are rescheduled each time the app opens or goes to the background.
+  // Reminders are rescheduled each time the app opens or goes to the background; Spotlight follows
+  // the family's recipes, lists and contacts (src/spotlight.ts).
   useEffect(() => {
-    refreshReminders(); endStaleActivities()
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'background') scheduleBackgroundRefresh(); if (s === 'active') { refreshReminders(); endStaleActivities() } })
+    refreshReminders(); endStaleActivities(); syncSpotlight()
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'background') scheduleBackgroundRefresh(); if (s === 'active') { refreshReminders(); endStaleActivities(); syncSpotlight() } })
     const watch = KinwallNative?.addListener('watchStateChanged', () => { syncWatch() }) // e.g. the Watch app was just installed
     return () => { sub.remove(); watch?.remove() }
   }, [])

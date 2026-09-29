@@ -107,14 +107,16 @@ const withSceneLifecycle = (config) => {
 }
 
 // Our native code's hooks in the generated AppDelegate (native/ios/AppHooks.swift): Siri's
-// parameter lists at launch.
+// parameter lists at launch, and a tapped Spotlight result.
 const withAppHooks = (config) =>
   withAppDelegate(config, (c) => {
     let src = c.modResults.contents
     if (src.includes('AppHooks.')) return c
     const launch = /(\n\s*)return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/
-    if (!launch.test(src)) throw new Error('withAppHooks: the AppDelegate template changed; update the patch')
+    const resume = /(\n\s*)let result = RCTLinkingManager\.application\(application, continue: userActivity, restorationHandler: restorationHandler\)/
+    if (!launch.test(src) || !resume.test(src)) throw new Error('withAppHooks: the AppDelegate template changed; update the patch')
     src = src.replace(launch, '$1AppHooks.launched()$&')
+    src = src.replace(resume, '$1if AppHooks.open(userActivity) { return true }$&')
     c.modResults.contents = src
     return c
   })

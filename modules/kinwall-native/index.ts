@@ -13,6 +13,9 @@ type KinwallNative = {
   activityEndStale(): Promise<void>
   /** Live Activities allowed in iPhone Settings. */
   activitiesEnabled(): boolean
+  /** iOS: Spotlight's items (src/spotlight.ts), replacing the last set; cleared on sign-out. */
+  spotlightSet?(items: { id: string; title: string; description: string; kind: string }[]): Promise<void>
+  spotlightClear?(): Promise<void>
   /** iOS: a family.kinwall.app:/open link from Siri or a Control (native/ios/OpenIntents.swift), once. */
   takeLink?(): string | null
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription

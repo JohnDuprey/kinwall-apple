@@ -102,7 +102,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 | **Complete a chore** | "Mark Take out trash done" | First |
 | **Points** | "How many points does Maya have?" | Later |
 | **What's on** a day | "What's on Kinwall tomorrow?" | Later |
-| **Spotlight** | Lists and chores searchable from the Home Screen | Later |
+| **Spotlight** | Recipes, lists and contacts searchable from the Home Screen | Built |
 | **Action button** (iPhone 15 Pro and later, Watch Ultra) | Mapped to "Add to Groceries" | Later |
 
 ## Status
@@ -128,6 +128,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
   - **Start the night screen:** "Start the Kinwall night screen" opens the app on the dim night clock (the event the header's 🌙 button sends).
 
   They run in the app's process with the widgets' key; the ones that open the app hand their link to the web app through the native module (`PendingLink`), so one that launches the app isn't lost. In the demo they answer from the demo family and save nothing. Checked in the iOS 26.5 Simulator (iPhone 17 Pro): What's on today, Mark a chore done (with its chore and person pickers) and Night screen. The earlier "Couldn't find AppShortcutsProvider" came from the Simulator build being signed ad hoc, with no team; `scripts/sign-simulator.sh` re-signs it (README).
+- **Spotlight (built 2026-09-29):** the family's recipes, lists and contacts, by name with a short line ("Recipe · 35 min · …", "Shopping list · 12 left", "Contact · Grandparent"), never notes, phone numbers, addresses or health entries. `src/spotlight.ts` fetches them with the widgets' key when the app opens or comes back (at most every 10 minutes) and hands them to `modules/kinwall-native/ios/Spotlight.swift`, which replaces the app's items; sign-out clears them. The demo shows a few of the demo family's. Each item's identifier is its app link, so a tap opens its page (`native/ios/AppHooks.swift`). The web app opens Lists on the list (`?list=`); a recipe or contact opens Meals or Contacts until it reads `?recipe=` and `?contact=`. Checked in the Simulator: "Rosa" finds Grandma Rosa and the tap opens Contacts.
 - **Next:** install on a real iPhone and Watch; check Siri, reminder taps and complications there.
 
 ## A sensible first pass

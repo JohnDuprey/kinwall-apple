@@ -4,6 +4,7 @@ import { Alert, Platform } from 'react-native'
 import KinwallNative from '../modules/kinwall-native'
 import { CHANNEL, requestPermission } from './reminders'
 import { reloadWidgets } from './widgets'
+import { clearSpotlight, showDemoInSpotlight } from './spotlight'
 
 /** The demo family (a static copy of the web app with sample data): no sign-in, nothing saved.
  * A debug build can point it at a local copy with EXPO_PUBLIC_DEMO_URL (the kinwall repo's
@@ -11,7 +12,7 @@ import { reloadWidgets } from './widgets'
  * always uses the real one. */
 export const DEMO_URL = (__DEV__ && process.env.EXPO_PUBLIC_DEMO_URL) || 'https://demo.kinwall.family'
 
-// While the demo is open, the iOS widgets show the demo family's built-in sample data and two
+// While the demo is open, the iOS widgets and Spotlight show the demo family's built-in sample data and two
 // sample reminders arrive, so a visitor (or an App Store reviewer) sees both with no server. The
 // flag is a Keychain item in the widgets' shared group (KinwallKit's SharedKeychain.demoStore);
 // the widgets ignore it whenever a real family's key is there.
@@ -27,6 +28,7 @@ const SAMPLES = [
 export async function enterDemo(): Promise<void> {
   await KinwallNative?.keychainSet(FLAG, true, JSON.stringify({ baseURL: DEMO_URL, key: 'demo' })).catch(() => {})
   reloadWidgets()
+  await showDemoInSpotlight()
   await requestPermission()
   const { granted } = await Notifications.getPermissionsAsync()
   for (const s of SAMPLES) {
@@ -51,6 +53,7 @@ export async function leaveDemo(): Promise<void> {
   if (await KinwallNative?.keychainGet(FLAG, true).catch(() => null)) {
     await KinwallNative?.keychainSet(FLAG, true, null).catch(() => {})
     reloadWidgets()
+    await clearSpotlight()
   }
   for (const s of SAMPLES) {
     await Notifications.cancelScheduledNotificationAsync(PREFIX + s.id).catch(() => {})

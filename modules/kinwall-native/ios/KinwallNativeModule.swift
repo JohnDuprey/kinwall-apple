@@ -49,6 +49,9 @@ public class KinwallNativeModule: Module {
             if status == errSecItemNotFound { status = SecItemAdd(q.merging(attrs) { $1 } as CFDictionary, nil) }
             if status != errSecSuccess { throw Exception(name: "KeychainError", description: "Keychain status \(status)") }
         }
+        /// Spotlight (Spotlight.swift): replace the family's items, or clear them on sign-out.
+        AsyncFunction("spotlightSet") { (items: [[String: String]]) in try await Spotlight.replace(items) }
+        AsyncFunction("spotlightClear") { try await Spotlight.clear() }
         /// A link an App Intent left for the web app (PendingLink), once.
         Function("takeLink") { PendingLink.take() }
         Function("reloadWidgets") { WidgetCenter.shared.reloadAllTimelines() }

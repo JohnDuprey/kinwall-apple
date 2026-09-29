@@ -15,6 +15,7 @@ import { hideSplash, saveAppearance, savedAppearance, useUi } from './theme'
 import { type Session, freshTokens, needsRefresh } from './session'
 import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './sharedKey'
 import { reloadWidgets } from './widgets'
+import { syncSpotlight } from './spotlight'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
@@ -195,6 +196,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
         await requestPermission() // first time signed in: ask, then schedule
         await refreshReminders()
         await syncWatch()
+        syncSpotlight(true)
         break
     }
   }
