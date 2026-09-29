@@ -47,8 +47,11 @@ A menu for M3 (widgets), M4 (Watch) and M5 (Siri), built on things Kinwall alrea
 
 | Control | What it does | Tag |
 |---|---|---|
-| **Add to Groceries** | Opens a one-line quick-add, with dictation | Later |
-| **Open the Board** | Opens the app on the Board | Later |
+| **Add to Groceries** | Opens Groceries in the app, at its add field (a control can't take typing) | Built |
+| **Start shopping** | Opens shopping mode on Groceries | Built |
+| **Night screen** | Opens the app on the dim night clock | Built |
+
+Built 2026-09-29 in `targets/widgets/Controls.swift` (iOS 18 and later; on iOS 17 they aren't offered). Each runs an open-the-app intent from `native/ios/OpenIntents.swift`, compiled into the app and the widget extension, so iOS runs it in the app. They work from Control Center, the Lock Screen's control slots and the Action button. Checked in the Simulator: all three are offered under Kinwall in Control Center, and Night screen opens the night clock. A one-line quick-add without opening the app would need Kinwall's own small add screen; the web app's list is the add screen for now.
 
 ### Live Activities
 

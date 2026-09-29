@@ -3,7 +3,8 @@ import WidgetKit
 import KinwallKit
 
 // The widgets (docs/WIDGETS-AND-WATCH.md): Now & Next, Today, a Chores-left ring, Chores and List
-// (InteractiveWidgets.swift), Take now and the StandBy clock (MoreWidgets.swift), and the Live Activities.
+// (InteractiveWidgets.swift), Take now and the StandBy clock (MoreWidgets.swift), the Live Activities,
+// and the Controls (Controls.swift).
 // They read the Board with the widgets' own everyday-access key (SharedKeychain.widgetStore).
 
 @main
@@ -17,6 +18,7 @@ struct KinwallWidgets: WidgetBundle {
         TakeNowWidget()
         StandByClockWidget()
         KinwallLiveActivity()
+        if #available(iOS 18.0, *) { KinwallControls().body }
     }
 }
 
