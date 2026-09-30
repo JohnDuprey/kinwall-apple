@@ -61,6 +61,14 @@ export function showSampleMedication() {
   showActivity('medication', { medicationId: 'med1', date: new Date(now).toISOString().slice(0, 10), time: '12:00', memberName: 'Sam', label: "Sam's medicine", headline: "Time for Sam's medicine", dueAt: new Date(now - 5 * 60_000).toISOString(), windowEndsAt: new Date(now + 2 * 3600_000).toISOString(), stage: 'due' }, null)
 }
 
+/** Debug builds only: a sample cooking timer (family.kinwall.app:/open?debug=cooking), a long
+ * recipe name and a 90-second timer that rings, in the shape the web app sends. */
+export function showSampleCooking() {
+  if (!__DEV__) return
+  const at = Date.now() + 90_000, recipe = 'Thai Coconut Curry with Crispy Tofu'
+  showActivity('cooking', { recipe, timer: 'Rice', step: 'Step 3 · Finish Filling', endsAt: at, done: false, more: 0, alarms: [{ at, title: "Time's up: Rice", body: `${recipe} · Step 3 · Finish Filling` }] }, null)
+}
+
 // Android, with no push: the leave-by and start-prep countdowns are scheduled ahead as exact alarms
 // from the event list the reminders fetch (src/reminders.ts), on every sync and background refresh,
 // so they show with the app closed. They're this device's person's (GET /api/me with the page's

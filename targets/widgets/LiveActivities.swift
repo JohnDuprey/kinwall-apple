@@ -30,12 +30,10 @@ struct KinwallLiveActivity: Widget {
                 .widgetURL(context.attributes.link)
         } dynamicIsland: { context in
             DynamicIsland {
+                // The leading region is narrow beside the camera: only the icon there, and what it's
+                // about gets the island's full width below.
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        Text(context.attributes.icon)
-                        Text(context.attributes.name).lineLimit(1)
-                    }
-                    .font(.subheadline.weight(.semibold)).padding(.leading, 4)
+                    Text(context.attributes.icon).font(.title3).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Trailing(context: context).font(.title3.weight(.semibold)).lineLimit(1).frame(maxWidth: 96, alignment: .trailing)
@@ -43,9 +41,13 @@ struct KinwallLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(context.headline).font(.headline).lineLimit(2)
+                        Text(context.headline).font(.headline).lineLimit(2).minimumScaleFactor(0.8)
+                        // The recipe, store or event under it (a medicine's headline already says whose).
+                        if context.attributes.kind != "medication" {
+                            Text(context.attributes.name).font(.subheadline.weight(.semibold)).lineLimit(2).minimumScaleFactor(0.8)
+                        }
                         if context.attributes.kind == "shopping" { ShoppingLineView(context: context).font(.subheadline).foregroundStyle(.secondary) }
-                        else if let line = context.islandLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
+                        else if let line = context.stepLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
                         if context.attributes.kind == "shopping" { ShoppingButtons(context: context, onDark: true) }
                         if context.attributes.kind == "medication" { Text(context.medicationLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1); DoseButtons(context: context, onDark: true) }
                     }
@@ -121,16 +123,11 @@ extension ActivityViewContext<KinwallActivityAttributes> {
         }
     }
 
-    var subline: String {
-        switch attributes.kind {
-        case "cooking": [s.detail, s.count > 0 ? "+\(s.count) more" : nil, attributes.name].compactMap { $0 }.joined(separator: " · ") // the step first; the recipe fits if it can
-        default: attributes.name
-        }
-    }
-
-    /// The expanded island's second line for a cooking timer (its leading region already names the recipe).
-    var islandLine: String? {
-        attributes.kind == "cooking" ? [s.detail, s.count > 0 ? "+\(s.count) more" : nil].compactMap { $0 }.joined(separator: " · ") : nil
+    /// A cooking timer's step and how many others are running, under the recipe.
+    var stepLine: String? {
+        guard attributes.kind == "cooking" else { return nil }
+        let line = [s.detail, s.count > 0 ? "+\(s.count) more" : nil].compactMap { $0 }.joined(separator: " · ")
+        return line.isEmpty ? nil : line
     }
 
     /// Shopping: where the current item is, then what's after it (KinwallKit ShoppingLine). `detail`
@@ -172,11 +169,12 @@ struct LockScreenActivity: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 8) {
                 Text(context.attributes.icon).font(.title3)
-                Text(lead).font(.subheadline.weight(.semibold)).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(1)
+                Text(lead).font(.subheadline.weight(.semibold)).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(2).minimumScaleFactor(0.8)
                 Spacer(minLength: 8)
                 Trailing(context: context).font(.title2.weight(.semibold)).foregroundStyle(theme.accent).lineLimit(1).frame(maxWidth: 110, alignment: .trailing)
             }
             Text(context.headline).font(.headline).foregroundStyle(context.due ? theme.accent : theme.fg).lineLimit(2)
+            if let line = context.stepLine { Text(line).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(2) }
             if context.attributes.kind == "shopping" {
                 ShoppingLineView(context: context).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75))
                 ShoppingButtons(context: context)
@@ -189,15 +187,14 @@ struct LockScreenActivity: View {
         .padding(16)
     }
 
-    /// Leave / prep: "Soccer practice · leave in" before the countdown; the others: their subline.
+    /// Leave / prep: "Soccer practice · leave in" before the countdown; the others: their name (a
+    /// cooking timer's step goes under its headline).
     private var lead: String {
         switch context.attributes.kind {
         case "leave": context.due ? context.attributes.name : "\(context.attributes.name) · leave in"
         case "prep": context.due ? context.attributes.name : "\(context.attributes.name) · start prep in"
-        // The count is on the right; where things are goes under the item (ShoppingLineView).
-        case "shopping": context.attributes.name
-        case "medication": context.attributes.name // the web app's label, generic unless the device opted into names
-        default: context.subline
+        // Shopping: the count is on the right; where things are goes under the item (ShoppingLineView).
+        default: context.attributes.name // a medicine: the web app's label, generic unless the device opted into names
         }
     }
 }

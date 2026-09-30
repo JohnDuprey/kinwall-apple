@@ -15,7 +15,7 @@ import { syncWatch, widgetConnection } from './sharedKey'
 import { groceriesRoute, routeFor } from './links'
 import { lists } from './api'
 import { pickGroceries } from './widgetData'
-import { showSampleMedication } from './liveActivities'
+import { showSampleCooking, showSampleMedication } from './liveActivities'
 import { syncSpotlight } from './spotlight'
 import { endAllActivities, endStaleActivities } from './liveActivities'
 import { SignIn } from './SignIn'
@@ -48,7 +48,7 @@ export default function App() {
   // Widget links: family.kinwall.app:/open?to=chores (or calendar, lists), plus &done=<chore id>
   // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
   // recipe links (to=recipes/import&url=…), which open the web app's recipe import.
-  useEffect(() => { if (url) { if (__DEV__ && url.includes('debug=medication')) showSampleMedication(); const r = routeFor(url); if (r) resolve(r).then(setRoute) } }, [url])
+  useEffect(() => { if (url) { if (__DEV__ && url.includes('debug=medication')) showSampleMedication(); if (__DEV__ && url.includes('debug=cooking')) showSampleCooking(); const r = routeFor(url); if (r) resolve(r).then(setRoute) } }, [url])
   // Siri and the Controls (native/ios/OpenIntents.swift) leave their link with the native module:
   // take it at launch, when told, and on every return to the app.
   useEffect(() => {
