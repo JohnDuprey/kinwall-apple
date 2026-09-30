@@ -64,9 +64,19 @@ it), account deletion info (in iPhone Settings → Kinwall), no purchases or pri
    - Content rating questionnaire,
    - Target audience: a family organizer used by parents and kids; if under-13s are a target, the
      Families policy applies, so answer carefully,
-   - Health apps declaration (medications, check-ins and the Health tracker count),
-   - Exact alarms: the app uses `SCHEDULE_EXACT_ALARM` for reminders and countdowns; calendar and
-     reminder apps qualify, and Play may ask for the justification,
+   - Health apps declaration (medications, check-ins and the Health tracker count; on Android also
+     the medicine reminders and the Take now widget, which shows a count, never names),
+   - Exact alarms: the app declares `USE_EXACT_ALARM` (Android 13 and later, granted at install) and
+     `SCHEDULE_EXACT_ALARM` capped at Android 12L (`maxSdkVersion` 32). Play allows
+     `USE_EXACT_ALARM` only for apps whose core function is a calendar, alarm clock or reminders,
+     and asks for a declaration in App content → **Exact alarm permission**: say Kinwall is a
+     family calendar whose event, leave-by and medicine reminders and cooking timers must fire at
+     the set time. If Play turns it down, drop `USE_EXACT_ALARM` from `app.json` and
+     `plugins/withKinwallNative.js` (withExactAlarms) and remove the `maxSdkVersion` cap; the alarms
+     then fall back to inexact ones (possibly minutes late) unless the person allows **Alarms &
+     reminders**,
+   - No `SYSTEM_ALERT_WINDOW` (blocked in `app.json`), no full-screen intents, no
+     `ACCESS_NOTIFICATION_POLICY`: Do Not Disturb for medicine is the person's own channel switch,
    - Ads: none.
 
 **Each release**

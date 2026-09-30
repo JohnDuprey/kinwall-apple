@@ -144,7 +144,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
   - **Chore nudge:** new on the device, off by default: iPhone **Settings → Kinwall → Chore nudge** and its time (7:00 AM to 7:00 PM). Once a day, on a person's own iPhone, the server's wording ("2 chores left today", the first three titles). **Done** only when it's a single chore without an open checklist (`POST /api/chores/{id}/complete`); otherwise a tap opens Chores.
   - If Taken or Done can't be saved (offline, signed out), the reminder comes straight back with "Didn't save. Try again, or open Kinwall." A saved one reloads the widgets.
   - **Time Sensitive** (leave-by and medicine break through a Focus and the Scheduled Summary): needs the `com.apple.developer.usernotifications.time-sensitive` entitlement, which the Personal Team's profile doesn't carry (checked 2026-09-30: signing with it fails, "Provisioning profile … doesn't include the Time Sensitive Notifications capability"). So it's off by default: `KINWALL_PUSH=1` (a paid team) or `KINWALL_TIME_SENSITIVE=1` at prebuild adds the entitlement and sets `KinwallTimeSensitive` in Info.plist, and only then does `modules/kinwall-native/ios/Reminders.swift` mark them `.timeSensitive`. Without it they're ordinary notifications.
-  - Android is unchanged: no buttons, medicine reminders or chore nudge there yet.
+  - Android has the same buttons, medicine reminders and chore nudge (built 2026-09-30): see [Android](#android).
   - Build-only so far; to check on an iPhone: each button from the Lock Screen with the app closed, a failed Taken in airplane mode, and the chore nudge setting.
 - **Focus filter (iPhone, built 2026-09-30):** iPhone **Settings → Focus → a Focus → Add Filter → Kinwall** (`native/ios/FocusFilter.swift`, `SetFocusFilterIntent`, no entitlement). Two switches:
   - **Only my reminders:** event reminders for events that have people tagged and don't include this iPhone's person are tagged `others` (`filterCriteria`, set by `Reminders.swift` after scheduling) and the filter's `notificationFilterPredicate` keeps them quiet. Family events (nobody tagged) and medicine, chore and cooking notifications always come through. Now & Next and Today show only this person's events and family ones. A shared iPhone (no person) is unaffected.
@@ -176,6 +176,55 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
   - In the demo, both show Maya's (the web demo's battery numbers); taps open the demo instead of saving. Checked in the Simulator with the demo: both in the widget gallery and on the Home Screen. Answering against a real server is build-only here (no paired family in the Simulator).
 - **Spotlight (built 2026-09-29):** the family's recipes, lists and contacts, by name with a short line ("Recipe · 35 min · …", "Shopping list · 12 left", "Contact · Grandparent"), never notes, phone numbers, addresses or health entries. `src/spotlight.ts` fetches them with the widgets' key when the app opens or comes back (at most every 10 minutes) and hands them to `modules/kinwall-native/ios/Spotlight.swift`, which replaces the app's items; sign-out clears them. The demo shows a few of the demo family's. Each item's identifier is its app link, so a tap opens its page (`native/ios/AppHooks.swift`). The web app opens Lists on the list (`?list=`); a recipe or contact opens Meals or Contacts until it reads `?recipe=` and `?contact=`. Checked in the Simulator: "Rosa" finds Grandma Rosa and the tap opens Contacts.
 - **Next:** install on a real iPhone and Watch; check Siri, reminder taps and complications there.
+
+## Android
+
+Built 2026-09-30. The Android side of the widgets, reminders and Controls above, on the same API and the widgets' own key.
+
+### Notification channels
+
+One channel per purpose (`modules/kinwall-native/android` `Channels.kt`), each tuned in Android **Settings → Apps → Kinwall → Notifications**. Channel ids are permanent, so the existing ones kept theirs:
+
+| Channel | Id | Starts | What's on it |
+|---|---|---|---|
+| **Event reminders** | `reminders` (unchanged) | High | Event reminders, with **Snooze 10 min** and **Open** |
+| **Leave-by** | `leave_by` (new) | High | The leave-by and start-prep countdowns, and "Leave by…" reminders. Off on a phone that had turned off the old countdowns channel, where they used to be |
+| **Medicine** | `medicine` (new) | High | Medicine reminders (**Taken**, **Snooze 10 min**) and the due-dose countdown |
+| **Chores** | `chores` (new) | Off | The chore nudge. Turning the channel on is the opt-in (iPhone uses Settings → Kinwall); it comes at 8:00 AM |
+| **Timers and countdowns** | `countdowns` (unchanged) | Default | The cooking timer's countdown and the shopping trip |
+| **Cooking timers** | `cooking_timers` (unchanged) | High, alarm sound | A timer that's up |
+
+**Medicine through Do Not Disturb:** the Medicine channel's own **Override Do Not Disturb** switch, which the person sets; no `ACCESS_NOTIFICATION_POLICY`. The channel's description says so. The page can open that channel's settings: `window.kinwallNative.notificationSettings` is true on Android, and the message `{ type: 'notificationSettings', channel: 'medicine' }` opens `Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS` (any channel id above; without one, the app's notification settings). The web app doesn't send it yet (docs/PLAN.md, web changes).
+
+Each countdown kind posts in a notification group of its own, so Android's auto-bundling (four or more of an app's notifications) can't fold it into a summary, which can't be promoted to a Live Update.
+
+### Reminder buttons
+
+The same categories as iPhone (`src/reminders.ts`), now on both platforms, with the same medicine reminders and chore nudge (`src/reminderPlans.ts`) on a person's own phone (the widgets' key's owner, `GET /api/me`). Medicine text stays generic ("Time for your medicine", "8:00 AM dose"). The buttons run in `ReminderActions.kt` without opening the app: expo-notifications sends its events to the app's highest-priority receiver for its action (its own has -1), so `ReminderActions`, a subclass of its `NotificationsService` at priority 0, gets them, handles Snooze, Taken and Done, and passes everything else on. Taken and Snooze are `POST /api/medications/{id}/doses` (the due-dose countdown for the same dose follows), Done is `POST /api/chores/{id}/complete`, with the widgets' key. A snooze is a copy 10 minutes later (`snz:…`); a Taken or Done that can't be saved comes straight back with "Didn't save. Try again, or open Kinwall." Open, and a tap, open the event as before.
+
+### Widgets
+
+Four, rendered from JavaScript (`src/widgets.tsx`, `react-native-android-widget`), each with a picker preview (`assets/widgets/`) and description:
+
+| Widget | Size | What it does |
+|---|---|---|
+| **Now & Next** (`Kinwall`) | 3×2 | As before: now, next with the leave-by time, chores left |
+| **Chores** | 3×3 | Today's chores, ones left first. Its settings (touch and hold → the pencil) pick a person or Everyone; by default the phone's own person, else Everyone. A tap ticks it (`POST /api/chores/{id}/complete`); an Anyone chore credits the widget's person, or opens the app on "Who did it?" when it's set to Everyone; one with an open checklist opens that checklist |
+| **List** | 3×3 | Groceries (else the first shopping list), or a list picked in its settings. Tap an item to tick it; **+ Add** opens the list in the app, where the add field is |
+| **Take now** | 2×2 | How many medicines are due now (`GET /api/medications/due`). Never their names: a count and "Medicine" only |
+
+- **Colors:** each widget draws a light and a dark version in the family's saved colors (`src/appearance.ts` `widgetPalette`: the page's surfaces with Kinwall's text and accent), so it follows Android's dark theme, or stays in the family's light or dark when they chose one. Kinwall's own colors before the page has sent any.
+- **Offline or refused:** the widget says so ("Can't reach Kinwall right now", "Didn't save. Try again, or open Kinwall.") and the row stays.
+- **Home Screen only:** the library declares every widget `widgetCategory="home_screen"`, never `keyguard`, so none can go on the Lock Screen or the Android 16 lock-screen hub. Take now above all.
+- **Refresh:** every 30 minutes, after a tick (all of them), and when the app syncs (`reloadWidgets`, which sends Android's own update broadcast from `Widgets.kt`).
+- **Demo:** the demo family's chores and Groceries; taps open the demo instead of ticking.
+
+### Shortcuts and Quick Settings tiles
+
+- **Launcher shortcuts** (touch and hold the icon; `res/xml/kinwall_shortcuts.xml`): **Add to Groceries**, **Start shopping**, **My chores**, **Night screen**. They open `family.kinwall.app:/open?to=groceries`, `?to=groceries/shop`, `?to=chores` and `?to=night`. A shortcut can't know the list's id, so the app looks up Groceries (the same pick as the List widget) with the widgets' key; signed out, offline or in the demo it opens Lists.
+- **Quick Settings tiles** (`Tiles.kt`): **Add to Groceries** and **Night screen**, from the Quick Settings editor. On Android 13 and later the page can offer one: `window.kinwallNative.quickSettingsTiles` is true, and `{ type: 'addTile', tile: 'groceries' | 'night' }` asks Android (`requestAddTileService`), which shows its own prompt. Optional; the web app doesn't send it yet.
+
+Checked on the Pixel emulator (Android 16): the channels are created (Chores off), the countdowns post on Leave-by and Timers and countdowns in their own groups and stay out of Android's auto-bundle, expo-notifications resolves `ReminderActions` ahead of its own receiver and scheduled reminders still arrive through it, the four widgets show in the picker with their previews and descriptions, the Chores widget shows the demo family and switches to the dark palette with the system's dark theme, the four shortcuts are registered, and the Groceries tile opens the app. To check on a phone with a real family: each reminder button with the app closed (and in airplane mode, to see a failed Taken come back), the chore nudge after turning on the Chores channel, ticking in the Chores and List widgets, the Override Do Not Disturb switch on Medicine, and the Live Update chip now that the countdowns are grouped.
 
 ## A sensible first pass
 
