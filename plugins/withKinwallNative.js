@@ -187,5 +187,15 @@ const withExactAlarms = (config) =>
     return c
   })
 
+// The launcher's shortcuts (Add to Groceries, Start shopping, My chores, Night screen), in
+// modules/kinwall-native/android res/xml/kinwall_shortcuts.xml, on the main activity.
+const withShortcuts = (config) =>
+  withAndroidManifest(config, (c) => {
+    const activity = AndroidConfig.Manifest.getMainActivityOrThrow(c.modResults)
+    const meta = (activity['meta-data'] ??= [])
+    if (!meta.some((m) => m.$['android:name'] === 'android.app.shortcuts')) meta.push({ $: { 'android:name': 'android.app.shortcuts', 'android:resource': '@xml/kinwall_shortcuts' } })
+    return c
+  })
+
 // Mods run newest-first, so register ours before apple-targets' and it runs once the targets exist.
-module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withAppHooks(withSceneLifecycle(withSpacesInPath(withExactAlarms(withShareIntent(config))))))), {})
+module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withAppHooks(withSceneLifecycle(withSpacesInPath(withShortcuts(withExactAlarms(withShareIntent(config)))))))), {})

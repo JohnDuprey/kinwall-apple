@@ -1,7 +1,7 @@
 // node --test test/ (npm test). The app's family.kinwall.app:/open links: widgets, Live Activities, shares.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { routeFor } from '../src/links.ts'
+import { groceriesRoute, routeFor } from '../src/links.ts'
 
 test('routeFor: tabs, a chore to tick, a recipe to import', () => {
   assert.equal(routeFor('family.kinwall.app:/open?to=calendar'), 'calendar')
@@ -33,4 +33,13 @@ test('routeFor: Spotlight opens a recipe, a list or a contact', () => {
 test('routeFor: the check-in widget opens that person\'s check-in', () => {
   assert.equal(routeFor('family.kinwall.app:/open?to=checkin&member=m3'), 'calendar?checkin=m3')
   assert.equal(routeFor('family.kinwall.app:/open?to=checkin&member=%3C'), 'calendar')
+})
+
+test('Android shortcuts and tiles: Groceries, found by the app', () => {
+  assert.equal(routeFor('family.kinwall.app:/open?to=groceries'), 'groceries')
+  assert.equal(routeFor('family.kinwall.app:/open?to=groceries/shop'), 'groceries/shop')
+  assert.equal(groceriesRoute('groceries', 'l1'), 'lists?list=l1')
+  assert.equal(groceriesRoute('groceries/shop', 'l1'), 'lists/l1/shop')
+  assert.equal(groceriesRoute('groceries', null), 'lists')
+  assert.equal(groceriesRoute('groceries/shop', "x')"), 'lists')
 })

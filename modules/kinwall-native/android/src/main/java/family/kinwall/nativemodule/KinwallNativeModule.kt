@@ -52,6 +52,8 @@ class KinwallNativeModule : Module() {
     // app's "Let medicine through Do Not Disturb", through src/WebShell.tsx).
     AsyncFunction("ensureChannels") { Channels.ensure(context) }
     Function("openNotificationSettings") { channel: String? -> Channels.openSettings(context, channel) }
+    // Android 13 and later: offer a Quick Settings tile ("groceries", "night"); Android's answer.
+    AsyncFunction("addTile") { name: String, promise: expo.modules.kotlin.Promise -> Tiles.request(context, name) { promise.resolve(it) } }
     AsyncFunction("leaveBySchedule") { alarms: String -> Countdowns.schedule(context, alarms) }
     // Edge to edge, the navigation bar is see-through: its buttons follow the page's colors, not
     // the system's light or dark mode (expo-status-bar only does the status bar).

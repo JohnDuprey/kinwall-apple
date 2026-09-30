@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's shortcuts (touch and hold the Kinwall icon): the app's own links, which
+     src/App.tsx routes (Groceries is looked up there, since a shortcut can't know its id). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut android:shortcutId="groceries" android:enabled="true" android:icon="@drawable/kinwall_shortcut_add"
+    android:shortcutShortLabel="@string/kinwall_shortcut_groceries_short" android:shortcutLongLabel="@string/kinwall_shortcut_groceries">
+    <intent android:action="android.intent.action.VIEW" android:targetPackage="family.kinwall.app" android:targetClass="family.kinwall.app.MainActivity" android:data="family.kinwall.app:/open?to=groceries" />
+  </shortcut>
+  <shortcut android:shortcutId="shop" android:enabled="true" android:icon="@drawable/kinwall_shortcut_cart"
+    android:shortcutShortLabel="@string/kinwall_shortcut_shop_short" android:shortcutLongLabel="@string/kinwall_shortcut_shop">
+    <intent android:action="android.intent.action.VIEW" android:targetPackage="family.kinwall.app" android:targetClass="family.kinwall.app.MainActivity" android:data="family.kinwall.app:/open?to=groceries%2Fshop" />
+  </shortcut>
+  <shortcut android:shortcutId="chores" android:enabled="true" android:icon="@drawable/kinwall_shortcut_chores"
+    android:shortcutShortLabel="@string/kinwall_shortcut_chores_short" android:shortcutLongLabel="@string/kinwall_shortcut_chores">
+    <intent android:action="android.intent.action.VIEW" android:targetPackage="family.kinwall.app" android:targetClass="family.kinwall.app.MainActivity" android:data="family.kinwall.app:/open?to=chores" />
+  </shortcut>
+  <shortcut android:shortcutId="night" android:enabled="true" android:icon="@drawable/kinwall_shortcut_night"
+    android:shortcutShortLabel="@string/kinwall_shortcut_night_short" android:shortcutLongLabel="@string/kinwall_shortcut_night">
+    <intent android:action="android.intent.action.VIEW" android:targetPackage="family.kinwall.app" android:targetClass="family.kinwall.app.MainActivity" android:data="family.kinwall.app:/open?to=night" />
+  </shortcut>
+</shortcuts>

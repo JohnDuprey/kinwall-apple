@@ -26,6 +26,9 @@ export function routeFor(link: string): string | null {
   // The check-in widget's "Goal for today?": their check-in on the calendar (the web app opens it once it reads ?checkin=).
   if (to === 'checkin') { const m = id(q.get('member')); return m ? `calendar?checkin=${m}` : 'calendar' }
   if (to === 'night') return 'night' // the night screen (WebShell sends the 🌙 button's event)
+  // Android's shortcuts and Quick Settings tiles, which can't know the list's id: App.tsx looks up
+  // Groceries (groceriesRoute) before the page opens it.
+  if (to === 'groceries' || to === 'groceries/shop') return to
   if (to === 'lists') { const l = id(q.get('list')); return l ? `lists?list=${l}` : 'lists' }
   // Spotlight: a recipe or a contact (src/spotlight.ts).
   if (to === 'meals') { const r = id(q.get('recipe')); return r ? `meals?recipe=${r}` : 'meals' }
@@ -33,4 +36,11 @@ export function routeFor(link: string): string | null {
   if (!to || !['calendar', 'chores'].includes(to)) return null
   const done = id(q.get('done'))
   return to === 'chores' && done ? `chores?done=${done}` : to
+}
+
+/** 'groceries' (add to it) or 'groceries/shop' (shopping mode) with the family's Groceries list
+ * (src/widgetData.ts pickGroceries); Lists when there's none, or it can't be fetched. */
+export function groceriesRoute(route: string, groceriesId: string | null | undefined): string {
+  if (!groceriesId || !/^[A-Za-z0-9_-]+$/.test(groceriesId)) return 'lists'
+  return route === 'groceries/shop' ? `lists/${groceriesId}/shop` : `lists?list=${groceriesId}`
 }

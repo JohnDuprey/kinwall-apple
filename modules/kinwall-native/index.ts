@@ -28,6 +28,9 @@ type KinwallNative = {
   /** Android: a channel's page in Android Settings (e.g. "medicine", to let it through Do Not
    * Disturb); the app's notification settings without one. */
   openNotificationSettings?(channel: string | null): void
+  /** Android 13 and later: asks to add a Quick Settings tile ("groceries" or "night"); Android's
+   * answer (StatusBarManager TILE_ADD_REQUEST_RESULT_*), -1 where it can't. */
+  addTile?(name: string): Promise<number>
   /** Android: the navigation bar's buttons light (on a dark page) or dark. */
   navigationBar(dark: boolean): void
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription

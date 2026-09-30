@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="kinwall_shortcut_groceries">Add to Groceries</string>
+  <string name="kinwall_shortcut_groceries_short">Add</string>
+  <string name="kinwall_shortcut_shop">Start shopping</string>
+  <string name="kinwall_shortcut_shop_short">Shop</string>
+  <string name="kinwall_shortcut_chores">My chores</string>
+  <string name="kinwall_shortcut_chores_short">Chores</string>
+  <string name="kinwall_shortcut_night">Night screen</string>
+  <string name="kinwall_shortcut_night_short">Night</string>
+  <string name="kinwall_tile_groceries">Add to Groceries</string>
+  <string name="kinwall_tile_night">Night screen</string>
+</resources>

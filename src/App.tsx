@@ -11,8 +11,10 @@ import { refreshReminders, scheduleBackgroundRefresh } from './reminders'
 import { clearServer, loadServer, saveServer } from './server'
 import { ServerEntry } from './ServerEntry'
 import { type Session, freshTokens, loadSession, signOut } from './session'
-import { syncWatch } from './sharedKey'
-import { routeFor } from './links'
+import { syncWatch, widgetConnection } from './sharedKey'
+import { groceriesRoute, routeFor } from './links'
+import { lists } from './api'
+import { pickGroceries } from './widgetData'
 import { showSampleMedication } from './liveActivities'
 import { syncSpotlight } from './spotlight'
 import { endAllActivities, endStaleActivities } from './liveActivities'
@@ -46,11 +48,11 @@ export default function App() {
   // Widget links: family.kinwall.app:/open?to=chores (or calendar, lists), plus &done=<chore id>
   // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
   // recipe links (to=recipes/import&url=…), which open the web app's recipe import.
-  useEffect(() => { if (url) { if (__DEV__ && url.includes('debug=medication')) showSampleMedication(); const r = routeFor(url); if (r) setRoute(r) } }, [url])
+  useEffect(() => { if (url) { if (__DEV__ && url.includes('debug=medication')) showSampleMedication(); const r = routeFor(url); if (r) resolve(r).then(setRoute) } }, [url])
   // Siri and the Controls (native/ios/OpenIntents.swift) leave their link with the native module:
   // take it at launch, when told, and on every return to the app.
   useEffect(() => {
-    const take = () => { const l = KinwallNative?.takeLink?.(); const r = l ? routeFor(l) : null; if (r) setRoute(r) }
+    const take = () => { const l = KinwallNative?.takeLink?.(); const r = l ? routeFor(l) : null; if (r) resolve(r).then(setRoute) }
     take()
     const sub = KinwallNative?.addListener('link', take)
     const active = AppState.addEventListener('change', (s) => { if (s === 'active') take() })
@@ -89,6 +91,15 @@ export default function App() {
         : <WebShell url={server} session={session} route={route} onRouteApplied={routeApplied} onTokens={onTokens} onSignedOut={signedOut} onChangeServer={changeServer} />}
     </SafeAreaProvider>
   )
+}
+
+/** Android's shortcuts and tiles ask for "groceries": the family's Groceries list, found with the
+ * widgets' key (src/widgetData.ts pickGroceries); Lists signed out, offline or in the demo. */
+async function resolve(route: string): Promise<string> {
+  if (route !== 'groceries' && route !== 'groceries/shop') return route
+  const c = await widgetConnection()
+  const groceries = c ? await lists(c).then(pickGroceries).catch(() => null) : null
+  return groceriesRoute(route, groceries?.id)
 }
 
 /** The saved session, with OAuth keys refreshed first if they've lapsed (they last an hour): the

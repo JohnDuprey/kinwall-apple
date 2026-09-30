@@ -18,5 +18,14 @@
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
       </intent-filter>
     </receiver>
+    <!-- Quick Settings tiles (Tiles.kt). -->
+    <service android:name="family.kinwall.nativemodule.GroceriesTile" android:exported="true" android:label="@string/kinwall_tile_groceries"
+      android:icon="@drawable/kinwall_ic_add" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+    </service>
+    <service android:name="family.kinwall.nativemodule.NightScreenTile" android:exported="true" android:label="@string/kinwall_tile_night"
+      android:icon="@drawable/kinwall_ic_night" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+    </service>
   </application>
 </manifest>
