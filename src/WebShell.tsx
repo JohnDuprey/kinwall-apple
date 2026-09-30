@@ -19,13 +19,17 @@ import { syncSpotlight } from './spotlight'
 import KinwallNative from '../modules/kinwall-native'
 import * as Crypto from 'expo-crypto'
 import { bridgeMessage, sameOrigin } from './bridge'
-import { importContactsScript } from './links'
+import { importContactsScript, meetCall } from './links'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
 // non-web links (mailto:, tel:) still go to the system so their apps open.
 const MAPS = /^https?:\/\/(maps\.apple\.com|maps\.google\.|www\.google\.[^/]+\/maps)/
+// The contact sheet's Video call (intent:… for Google Meet) goes to the native module: an intent:
+// link isn't a URL Linking can open.
 function openOutside(url: string) {
+  const meet = meetCall(url)
+  if (meet) { KinwallNative?.videoCall?.(meet); return }
   if (/^https?:/.test(url) && !MAPS.test(url)) WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}))
   else Linking.openURL(url).catch(() => {})
 }
@@ -42,7 +46,7 @@ const NONCE = Array.from(Crypto.getRandomValues(new Uint8Array(16)), (b) => b.to
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
 const bridge = (origin: string, token: string | null, frame: (Surface & { dark: boolean }) | null) => `
-window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)} };
+window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)}, videoCall: ${JSON.stringify(Platform.OS === 'android')} };
 ${token ? `if (location.origin === ${JSON.stringify(origin)}) try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
@@ -239,6 +243,9 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       onLoadEnd={() => { hideSplash(); setLoading(false); syncKey(); if (pending.current) { go(pending.current); pending.current = null } }}
       onNavigationStateChange={(s) => { canGoBack.current = s.canGoBack }}
       onError={(e) => { hideSplash(); setFailed(e.nativeEvent.description) }}
+      // Other schemes (tel:, mailto:) go straight to Linking without reaching the handler below;
+      // intent: (the contact sheet's Video call, which Linking can't open) comes here for openOutside.
+      originWhitelist={['http://*', 'https://*', 'intent:*']}
       // Other sites open outside the app (openOutside); Kinwall stays here.
       onShouldStartLoadWithRequest={(r) => {
         if (isKinwall(r.url) || r.url.startsWith('about:') || r.url.startsWith('blob:')) return true

@@ -1,7 +1,7 @@
 // node --test test/ (npm test). The app's family.kinwall.app:/open links: widgets, Live Activities, shares.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { groceriesRoute, routeFor, importContactsScript } from '../src/links.ts'
+import { groceriesRoute, routeFor, importContactsScript, meetCall } from '../src/links.ts'
 
 test('routeFor: tabs, a chore to tick, a recipe to import', () => {
   assert.equal(routeFor('family.kinwall.app:/open?to=calendar'), 'calendar')
@@ -59,4 +59,15 @@ test('importContactsScript: hands the vCard to the page without its photo, or ju
   for (const nothing of [null, undefined, 'hello', 'BEGIN:VCARD\n' + 'x'.repeat(2_000_001)]) {
     assert.equal(importContactsScript(nothing), `location.hash = '#/contacts'; true;`)
   }
+})
+
+test('meetCall: the contact sheet\'s Video call link, and nothing else', () => {
+  const meet = (to: string) => `intent:tel:${to}#Intent;action=com.google.android.apps.tachyon.action.CALL;package=com.google.android.apps.tachyon;end`
+  assert.equal(meetCall(meet('+15555550123')), '+15555550123')
+  assert.equal(meetCall(meet('5555550123')), '5555550123')
+  assert.equal(meetCall(meet('123')), null, 'too short for a phone number')
+  assert.equal(meetCall(meet('+1555;S.x=y')), null)
+  assert.equal(meetCall('intent:tel:+15555550123#Intent;action=android.intent.action.CALL;end'), null, 'only Meet\'s call')
+  assert.equal(meetCall('intent:#Intent;action=com.google.android.apps.tachyon.action.CALL;package=com.google.android.apps.tachyon;component=x/y;end'), null)
+  assert.equal(meetCall('tel:+15555550123'), null)
 })

@@ -1,5 +1,8 @@
 package family.kinwall.nativemodule
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -61,6 +64,21 @@ class KinwallNativeModule : Module() {
     // Android 13 and later: offer a Quick Settings tile ("groceries", "night"); Android's answer.
     AsyncFunction("addTile") { name: String, promise: expo.modules.kotlin.Promise -> Tiles.request(context, name) { promise.resolve(it) } }
     AsyncFunction("leaveBySchedule") { alarms: String -> Countdowns.schedule(context, alarms) }
+    // The contact sheet's Video call (src/links.ts meetCall): a Google Meet video call to the number,
+    // with Meet's call intent (the one Google's Contacts and Phone apps start). Without Meet, its
+    // Play Store page (the web one when there's no Play Store).
+    Function("videoCall") { number: String ->
+      val activity = appContext.currentActivity ?: return@Function
+      val meet = "com.google.android.apps.tachyon"
+      val tries = listOf(
+        Intent("$meet.action.CALL", Uri.fromParts("tel", number, null)).setPackage(meet),
+        Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$meet")),
+        Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$meet")),
+      )
+      activity.runOnUiThread {
+        for (intent in tries) try { activity.startActivity(intent); break } catch (_: ActivityNotFoundException) {}
+      }
+    }
     // Edge to edge, the navigation bar is see-through: its buttons follow the page's colors, not
     // the system's light or dark mode (expo-status-bar only does the status bar).
     Function("navigationBar") { dark: Boolean ->

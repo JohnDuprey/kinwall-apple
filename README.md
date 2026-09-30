@@ -62,6 +62,8 @@ The Live Activities show on Android as ongoing notifications on their own **Time
 
 Also on Android (built 2026-09-30, [docs/WIDGETS-AND-WATCH.md](docs/WIDGETS-AND-WATCH.md#android)): a notification channel per purpose (Event reminders, Leave-by, Medicine, Chores, Timers and countdowns, Cooking timers), buttons on reminders (Snooze, Open, Taken, Done) that work without opening the app, four home-screen widgets (Now & Next, Chores, List, Take now) in the family's colors, launcher shortcuts, and Quick Settings tiles.
 
+**Video call** on a contact's sheet (Android's counterpart to FaceTime there): the web app shows it when `window.kinwallNative.videoCall` is set, with an `intent:` link for Google Meet's call intent (`com.google.android.apps.tachyon.action.CALL`, `tel:` data, the one Google's Contacts and Phone apps start). `meetCall` in `src/links.ts` accepts only that link and `KinwallNative.videoCall` starts it, or opens Google Meet in the Play Store when it isn't installed. Chrome won't start that intent from a page, so the browser doesn't show the button.
+
 ## Sharing a recipe link to Kinwall
 
 A recipe page can be shared to Kinwall from Safari, Chrome or any app with a Share button (see Kinwall's [Meals docs](https://github.com/JohnDuprey/kinwall/blob/main/docs/using/meals.md#sharing-from-your-phone)).

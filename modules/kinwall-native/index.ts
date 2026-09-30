@@ -33,6 +33,8 @@ type KinwallNative = {
   /** Android 13 and later: asks to add a Quick Settings tile ("groceries" or "night"); Android's
    * answer (StatusBarManager TILE_ADD_REQUEST_RESULT_*), -1 where it can't. */
   addTile?(name: string): Promise<number>
+  /** Android: a Google Meet video call to a phone number (src/links.ts meetCall), or Meet's Play Store page without it. */
+  videoCall?(number: string): void
   /** Android: the navigation bar's buttons light (on a dark page) or dark. */
   navigationBar(dark: boolean): void
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription

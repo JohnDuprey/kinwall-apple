@@ -58,3 +58,12 @@ export function importContactsScript(vcard: string | null | undefined): string {
   if (!card || card.length > 2_000_000 || !/BEGIN:VCARD/i.test(card)) return open
   return `location.hash = '#/contacts'; window.dispatchEvent(new CustomEvent('kinwall:import-contacts', { detail: ${JSON.stringify(card)} })); true;`
 }
+
+/** The contact sheet's Video call on Android (web/src/Contacts.tsx meetHref in the kinwall repo):
+ * `intent:tel:<number>#Intent;action=com.google.android.apps.tachyon.action.CALL;package=com.google.android.apps.tachyon;end`
+ * → the number, for KinwallNative.videoCall. Any other intent: link (the page can't start other
+ * apps' intents) → null. */
+export function meetCall(url: string): string | null {
+  const m = /^intent:tel:(\+?[0-9]{7,15})#Intent;action=com\.google\.android\.apps\.tachyon\.action\.CALL;package=com\.google\.android\.apps\.tachyon;end$/.exec(url)
+  return m?.[1] ?? null
+}
