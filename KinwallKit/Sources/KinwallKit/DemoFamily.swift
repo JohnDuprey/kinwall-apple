@@ -24,7 +24,7 @@ public enum DemoFamily {
      {"id":"ch4","title":"Water plants","emoji":"🪴","points":5,"completed":false}]
     """)
     public static let groceries: ListDetail = decode("""
-    {"list":{"id":"l1","name":"Groceries","emoji":"🛒","kind":"shopping","archived":false,"itemCount":6,"openCount":5},
+    {"list":{"id":"l1","name":"Groceries","emoji":"🛒","kind":"shopping","catalog":"groceries","archived":false,"itemCount":6,"openCount":5},
      "items":[{"id":"li1","listId":"l1","title":"Milk","quantity":"1 gal","done":false},
               {"id":"li2","listId":"l1","title":"Eggs","quantity":"1 dozen","done":false},
               {"id":"li4","listId":"l1","title":"Apples","quantity":"6","done":false},

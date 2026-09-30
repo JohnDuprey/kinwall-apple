@@ -52,6 +52,18 @@ public struct FamilyList: Codable, Identifiable, Hashable, Sendable {
     public let archived: Bool
     public let itemCount: Int
     public let openCount: Int
+    /// Shopping lists: "groceries" or "shopping" (the list's type). Nil on other kinds and from
+    /// servers older than list types.
+    public let catalog: String?
+
+    /// The shopping list Siri, the controls and the List widget mean by default: the first
+    /// Groceries-type list, else one named Groceries, else the first shopping list. Archived lists skipped.
+    public static func groceries(in lists: [FamilyList]) -> FamilyList? {
+        let open = lists.filter { !$0.archived }
+        return open.first { $0.kind == .shopping && $0.catalog == "groceries" }
+            ?? open.first { $0.name.trimmingCharacters(in: .whitespaces).localizedCaseInsensitiveCompare("Groceries") == .orderedSame }
+            ?? open.first { $0.kind == .shopping }
+    }
 }
 
 public struct ListItem: Codable, Identifiable, Hashable, Sendable {

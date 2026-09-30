@@ -107,3 +107,18 @@ private func ev(_ id: String, _ title: String, _ start: String, _ end: String, a
         #expect(DemoFamily.battery().summary?.line == "62% · Good by this evening")
     }
 }
+
+@Suite struct GroceriesPickTests {
+    private func lists(_ json: String) throws -> [FamilyList] { try JSONDecoder().decode([FamilyList].self, from: Data(json.utf8)) }
+
+    @Test func prefersTheGroceriesType() throws {
+        let typed = try lists(#"[{"id":"g","name":"Groceries","kind":"shopping","catalog":"shopping","archived":false,"itemCount":0,"openCount":0},{"id":"f","name":"Food","kind":"shopping","catalog":"groceries","archived":false,"itemCount":0,"openCount":0}]"#)
+        #expect(FamilyList.groceries(in: typed)?.id == "f")
+    }
+    @Test func olderServersFallBackToTheNameThenAnyShoppingList() throws {
+        let old = try lists(#"[{"id":"c","name":"Costco","kind":"shopping","archived":false,"itemCount":0,"openCount":0},{"id":"g","name":"groceries","kind":"shopping","archived":false,"itemCount":0,"openCount":0}]"#)
+        #expect(old[0].catalog == nil)
+        #expect(FamilyList.groceries(in: old)?.id == "g")
+        #expect(FamilyList.groceries(in: [old[0]])?.id == "c")
+    }
+}

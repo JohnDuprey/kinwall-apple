@@ -139,7 +139,7 @@ struct ListProvider: AppIntentTimelineProvider {
             return Demo.isOn ? ListEntry(date: .now, list: Demo.groceries, signedOut: false, demo: true) : ListEntry(date: .now, list: nil, signedOut: true)
         }
         var id = config.list
-        if id == nil { id = try? await client.lists().first { !$0.archived && $0.kind == .shopping }?.id } // default: the first shopping list
+        if id == nil { id = (try? await FamilyList.groceries(in: client.lists()))?.id } // default: Groceries
         guard let id, let detail = try? await client.list(id) else { return ListEntry(date: .now, list: nil, signedOut: false) }
         return ListEntry(date: .now, list: detail, signedOut: false)
     }

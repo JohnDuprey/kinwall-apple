@@ -29,10 +29,9 @@ enum AppLink {
     }
 }
 
-/// The shopping list Siri and the controls mean: Groceries, else the first shopping list.
+/// The shopping list Siri and the controls mean (FamilyList.groceries).
 func groceries(_ kinwall: KinwallClient) async throws -> FamilyList? {
-    let lists = try await kinwall.lists().filter { !$0.archived }
-    return lists.first { $0.name.localizedCaseInsensitiveCompare("Groceries") == .orderedSame } ?? lists.first { $0.kind == .shopping }
+    FamilyList.groceries(in: try await kinwall.lists())
 }
 
 private func openClient() -> KinwallClient? { (try? SharedKeychain.widgetStore.load()).map { KinwallClient($0) } }

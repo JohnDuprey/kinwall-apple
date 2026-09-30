@@ -4,7 +4,14 @@ import assert from 'node:assert/strict'
 import { type FamilyList, choreRows, choreTap, pickGroceries, takeNowText } from '../src/widgetData.ts'
 import type { ChoreDay } from '../src/reminderPlans.ts'
 
-const list = (id: string, name: string, kind: FamilyList['kind'], archived = false): FamilyList => ({ id, name, kind, archived, openCount: 0 })
+const list = (id: string, name: string, kind: FamilyList['kind'], archived = false, catalog?: FamilyList['catalog']): FamilyList => ({ id, name, kind, catalog, archived, openCount: 0 })
+
+test('pickGroceries: the Groceries type first, then the name, then any shopping list', () => {
+  const household = list('h', 'Household', 'shopping', false, 'shopping'), food = list('f', 'Food', 'shopping', false, 'groceries')
+  assert.equal(pickGroceries([list('g', 'Groceries', 'shopping', false, 'shopping'), household, food])?.id, 'f')
+  assert.equal(pickGroceries([list('x', 'Old food', 'shopping', true, 'groceries'), household, list('g', 'Groceries', 'shopping')])?.id, 'g')
+  assert.equal(pickGroceries([household, list('t', 'To-dos', 'todo')])?.id, 'h')
+})
 
 test('pickGroceries: Groceries, else the first shopping list, else the first list', () => {
   assert.equal(pickGroceries([list('a', 'To-dos', 'todo'), list('b', 'Costco', 'shopping'), list('c', ' groceries ', 'shopping')])?.id, 'c')

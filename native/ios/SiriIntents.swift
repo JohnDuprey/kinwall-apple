@@ -46,12 +46,9 @@ private func today(_ kinwall: KinwallClient) async -> String {
     HouseholdDate.key(timezone: try? await kinwall.settings().timezone)
 }
 
-/// Groceries, else the first shopping list, else the first list.
+/// Groceries (FamilyList.groceries), else the first list.
 private func defaultList(_ lists: [FamilyList], shopping: Bool = false) -> FamilyList? {
-    let open = lists.filter { !$0.archived }
-    return open.first { $0.name.localizedCaseInsensitiveCompare("Groceries") == .orderedSame }
-        ?? open.first { $0.kind == .shopping }
-        ?? (shopping ? nil : open.first)
+    FamilyList.groceries(in: lists) ?? (shopping ? nil : lists.first { !$0.archived })
 }
 
 // MARK: - Entities
