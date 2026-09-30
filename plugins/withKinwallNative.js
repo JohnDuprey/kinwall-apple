@@ -77,9 +77,18 @@ const withKinwallKit = (config) =>
 // (a paid team, docs/PLAN.md) keeps it for the Live Activities' Apple push, and KinwallPush tells
 // the app to ask for their tokens.
 const PUSH = process.env.KINWALL_PUSH === '1'
+// Time Sensitive reminders (leave-by and medicine break through a Focus) need their entitlement,
+// which the Personal Team's profile doesn't carry: a paid team (KINWALL_PUSH=1), or
+// KINWALL_TIME_SENSITIVE=1 to try it on another, adds it and sets KinwallTimeSensitive, which
+// modules/kinwall-native/ios/Reminders.swift reads. Without it they're ordinary notifications.
+const TIME_SENSITIVE = PUSH || process.env.KINWALL_TIME_SENSITIVE === '1'
 const withLocalOnly = (config) => {
-  config = withInfoPlist(config, (c) => { c.modResults.CFBundleVersion = '$(CURRENT_PROJECT_VERSION)'; c.modResults.KinwallPush = PUSH; return c })
-  return withEntitlementsPlist(config, (c) => { if (!PUSH) delete c.modResults['aps-environment']; return c })
+  config = withInfoPlist(config, (c) => { c.modResults.CFBundleVersion = '$(CURRENT_PROJECT_VERSION)'; c.modResults.KinwallPush = PUSH; c.modResults.KinwallTimeSensitive = TIME_SENSITIVE; return c })
+  return withEntitlementsPlist(config, (c) => {
+    if (!PUSH) delete c.modResults['aps-environment']
+    if (TIME_SENSITIVE) c.modResults['com.apple.developer.usernotifications.time-sensitive'] = true
+    return c
+  })
 }
 
 // iOS 27 kills apps built with its SDK at launch unless they use the scene life cycle (the

@@ -1,6 +1,8 @@
 // The slice of Kinwall's REST API the shell and the Android widget need (KinwallKit stays the
 // Swift side's client). One fetch per call; callers own caching.
 
+import type { ChoreDay, MedicationDay } from './reminderPlans'
+
 export type Connection = { baseURL: string; key: string }
 
 export class ApiError extends Error {
@@ -10,7 +12,7 @@ export class ApiError extends Error {
 export type EventInstance = {
   id: string; title: string
   /** ISO instant for timed events; YYYY-MM-DD for all-day ones. */
-  start: string; allDay: boolean; location?: string | null
+  start: string; allDay: boolean; location?: string | null; memberIds?: string[]
   /** Minutes before start (or before leaveAt when remindBeforeLeave) to remind. */
   reminders?: number[] | null; leaveAt?: string | null; remindBeforeLeave?: boolean
 }
@@ -45,6 +47,11 @@ export async function isKinwall(baseURL: string): Promise<boolean> {
 
 export const events = (c: Connection, from: Date, to: Date) =>
   api<EventInstance[]>(c.baseURL, c.key, 'GET', `api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
+/** This key's owner: a member id on a person's own device, else "shared" or null. */
+export const me = (c: Connection) => api<{ scope: string; owner: string | null }>(c.baseURL, c.key, 'GET', 'api/me')
+export const medicationDay = (c: Connection, memberId: string) =>
+  api<MedicationDay>(c.baseURL, c.key, 'GET', `api/members/${encodeURIComponent(memberId)}/medications?days=1`)
+export const choresOn = (c: Connection, date: string) => api<ChoreDay[]>(c.baseURL, c.key, 'GET', `api/chores/day?date=${date}`)
 export const board = (c: Connection, days = 1) => api<Board>(c.baseURL, c.key, 'GET', `api/board?days=${days}`)
 /** An everyday-access key for widgets or the watch; the plaintext comes back once. */
 export const createDeviceKey = (baseURL: string, key: string, name: string) =>

@@ -33,6 +33,8 @@ public class KinwallNativeModule: Module {
             if let kind { await LiveActivities.end(kind: kind) } else { await LiveActivities.endAll() }
         }
         AsyncFunction("activityEndStale") { await LiveActivities.endStale() }
+        /// After src/reminders.ts schedules: the Focus tag and Time Sensitive (Reminders.swift).
+        AsyncFunction("tagReminders") { await Reminders.tag() }
         /// Off in iPhone Settings → Kinwall → Live Activities (the web app says so in its Notifications section).
         Function("activitiesEnabled") { ActivityAuthorizationInfo().areActivitiesEnabled }
         /// `shared`: the group the widgets, Watch and Siri read (SharedKeychain.group).

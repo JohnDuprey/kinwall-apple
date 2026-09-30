@@ -18,6 +18,9 @@ type KinwallNative = {
   spotlightClear?(): Promise<void>
   /** iOS: a family.kinwall.app:/open link from Siri or a Control (native/ios/OpenIntents.swift), once. */
   takeLink?(): string | null
+  /** iOS: after src/reminders.ts schedules, sets what expo-notifications can't: the Focus filter's
+   * tag (data.focus) and, in a build signed for it, Time Sensitive (data.urgent). */
+  tagReminders?(): Promise<void>
   /** Android: the next day's leave-by alarms (src/leaveBy.ts), replacing the last ones. */
   leaveBySchedule(alarms: string): Promise<void>
   /** Android: the navigation bar's buttons light (on a dark page) or dark. */

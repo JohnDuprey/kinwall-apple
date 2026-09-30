@@ -21,6 +21,8 @@ Native apps for the family who already use Kinwall. On iPhone and iPad the app s
 | Share extension (imports a shared recipe link; shared Keychain group, no App Group) | Yes | Yes |
 | **App Groups** (app and widget share storage) | No | Yes |
 | **Push notifications** (APNs), including Live Activity push-to-start | No | Yes |
+| **Time Sensitive notifications** (leave-by and medicine reminders break through a Focus) | No: the Personal Team's profile doesn't carry the entitlement, so it's off unless prebuilt with `KINWALL_TIME_SENSITIVE=1` or `KINWALL_PUSH=1` | Yes |
+| Reminder buttons (Snooze, Taken, Done) | Yes | Yes |
 | Live Activities started by the app (cooking timer, shopping trip, leave-by while open) | Yes | Yes |
 | iCloud, Sign in with Apple, Associated Domains (passkeys, universal links) | No | Yes |
 | TestFlight, App Store | No | Yes |
@@ -95,6 +97,7 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 ### M6: When there's a paid membership (not enrolled yet)
 - **Live Activities while the app is closed** (built behind configuration, off until then): see [Turning on Live Activity push](#turning-on-live-activity-push)
 - **APNs push:** the server gains an APNs sender beside web push, using the same notification preferences
+- **Time Sensitive reminders:** prebuild with `KINWALL_PUSH=1` (or `KINWALL_TIME_SENSITIVE=1`), which adds the entitlement; leave-by and medicine reminders then break through a Focus (docs/WIDGETS-AND-WATCH.md, Reminders with buttons)
 - **App Groups** for the app and widgets (retire any workaround from M3)
 - **Passkeys and universal links** (Associated Domains on `kinwall.family`)
 - TestFlight for the family, then an App Store listing: privacy manifest, screenshots, review notes (demo server)

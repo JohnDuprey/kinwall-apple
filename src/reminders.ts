@@ -1,8 +1,10 @@
 import * as BackgroundTask from 'expo-background-task'
 import * as Notifications from 'expo-notifications'
 import * as TaskManager from 'expo-task-manager'
-import { Platform } from 'react-native'
-import { type EventInstance, events } from './api'
+import { Platform, Settings } from 'react-native'
+import KinwallNative from '../modules/kinwall-native'
+import { type Connection, type EventInstance, choresOn, events, me, medicationDay } from './api'
+import { choreNudge, doseReminders, focusTag, localAt } from './reminderPlans'
 import { widgetConnection } from './sharedKey'
 import { endStaleActivities, scheduleLeaveBy } from './liveActivities'
 import type { LeaveByEvent } from './leaveBy'
@@ -13,6 +15,8 @@ import type { LeaveByEvent } from './leaveBy'
 // the app opens or goes to the background, and by a background task a few times a day.
 const REFRESH_TASK = 'family.kinwall.app.reminders'
 const PREFIX = 'rem:'
+/** A snoozed copy (native/ios/NotificationActions.swift): a refresh leaves it be; sign-out clears it. */
+const SNOOZED = 'snz:'
 /** iOS keeps at most 64 pending notifications per app; leave room for anything else. */
 const CAP = 60
 /** How far ahead to schedule. Refreshes happen well within this. */
@@ -34,6 +38,24 @@ export async function requestPermission(): Promise<void> {
   await Notifications.requestPermissionsAsync().catch(() => {})
 }
 
+// iOS: the buttons on each kind (native/ios/NotificationActions.swift runs them without opening
+// the app, with the widgets' key). Android has none yet.
+const IOS = Platform.OS === 'ios'
+const later = { opensAppToForeground: false }
+const categories = IOS ? Promise.all([
+  Notifications.setNotificationCategoryAsync('event', [
+    { identifier: 'snooze', buttonTitle: 'Snooze 10 min', options: later },
+    { identifier: 'open', buttonTitle: 'Open', options: { opensAppToForeground: true } },
+  ]),
+  Notifications.setNotificationCategoryAsync('medicine', [
+    { identifier: 'taken', buttonTitle: 'Taken', options: later },
+    { identifier: 'snooze', buttonTitle: 'Snooze 10 min', options: later },
+  ]),
+  Notifications.setNotificationCategoryAsync('chore', [{ identifier: 'done', buttonTitle: 'Done', options: later }]),
+]).catch(() => {}) : null
+
+type Planned = { fire: number; request: Notifications.NotificationRequestInput }
+
 export async function refreshReminders(): Promise<void> {
   const { granted } = await Notifications.getPermissionsAsync()
   const connection = await widgetConnection()
@@ -43,16 +65,57 @@ export async function refreshReminders(): Promise<void> {
   const list = await events(connection, new Date(now - 3600_000), new Date(now + HORIZON)).catch(() => null)
   if (!list) return
   await scheduleLeaveBy(connection, list as LeaveByEvent[]) // Android: the leave-by countdowns
-  const planned = list.flatMap((e) => requestsFor(e, now)).sort((a, b) => a.fire - b.fire).slice(0, CAP)
+  const person = IOS ? await me(connection).then((m) => (m.owner && m.owner !== 'shared' ? m.owner : null)).catch(() => null) : null
+  const planned = [...list.flatMap((e) => requestsFor(e, now, person)), ...(person ? await personal(connection, person, now) : [])]
+    .sort((a, b) => a.fire - b.fire).slice(0, CAP)
+  await categories
   const old = (await Notifications.getAllScheduledNotificationsAsync()).filter((r) => r.identifier.startsWith(PREFIX))
   await Promise.all(old.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier)))
   for (const p of planned) await Notifications.scheduleNotificationAsync(p.request).catch(() => {})
+  await KinwallNative?.tagReminders?.().catch(() => {}) // iOS: the Focus filter's tag, and Time Sensitive where signed
 }
 
 /** Sign-out: nothing should fire for a household this device no longer belongs to. */
 export async function clearReminders(): Promise<void> {
-  const old = (await Notifications.getAllScheduledNotificationsAsync()).filter((r) => r.identifier.startsWith(PREFIX))
+  const old = (await Notifications.getAllScheduledNotificationsAsync()).filter((r) => r.identifier.startsWith(PREFIX) || r.identifier.startsWith(SNOOZED))
   await Promise.all(old.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier)))
+}
+
+// ---- iPhone, a person's own device: medicine reminders and the chore nudge (src/reminderPlans.ts) ----
+
+/** Medicine text stays generic on the Lock Screen: never the medicine's name (the per-device
+ * "medicine names" choice lives with the web's push settings, which the app can't read). */
+async function personal(c: Connection, person: string, now: number): Promise<Planned[]> {
+  const out: Planned[] = []
+  const meds = await medicationDay(c, person).catch(() => null) // 404: the family has medicines off
+  for (const d of meds ? doseReminders(meds, now) : []) {
+    if (d.at <= now || d.at > now + HORIZON) continue
+    out.push(at(d.at, `${PREFIX}med:${d.medicationId}:${d.date}:${d.time}`, 'medicine', 'Time for your medicine', `${time(new Date(d.at))} dose`,
+      { route: 'calendar', medicationId: d.medicationId, date: d.date, time: d.time, urgent: true }))
+  }
+  // The chore nudge: off unless turned on in iPhone Settings → Kinwall (native/ios/Settings.bundle).
+  if (Settings.get('choreNudge')) {
+    const hhmm = String(Settings.get('choreNudgeTime') ?? '08:00')
+    for (const offset of [0, 1]) {
+      const date = localDay(now, offset)
+      const fire = localAt(date, hhmm)
+      if (fire <= now) continue
+      const nudge = choreNudge(await choresOn(c, date).catch(() => []), person)
+      if (nudge) out.push(at(fire, `${PREFIX}chore:${date}`, nudge.choreId ? 'chore' : undefined, nudge.title, nudge.body, { route: 'chores', choreId: nudge.choreId, date }))
+    }
+  }
+  return out
+}
+
+function at(fire: number, identifier: string, category: string | undefined, title: string, body: string, data: Record<string, unknown>): Planned {
+  return { fire, request: { identifier, content: { title, body, sound: 'default', data, categoryIdentifier: category }, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire } } }
+}
+
+/** The device's YYYY-MM-DD, `days` from now. */
+function localDay(now: number, days: number): string {
+  const d = new Date(now)
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // A few times a day, so reminders for events added elsewhere are scheduled even if the app isn't
@@ -69,7 +132,7 @@ export const scheduleBackgroundRefresh = () => BackgroundTask.registerTaskAsync(
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
-function requestsFor(e: EventInstance, now: number): { fire: number; request: Notifications.NotificationRequestInput }[] {
+function requestsFor(e: EventInstance, now: number, person: string | null): Planned[] {
   if (!e.reminders?.length) return []
   // ponytail: all-day events start at midnight in the device's timezone, not the household's; differs only when the phone travels.
   const start = e.allDay ? localMidnight(e.start) : Date.parse(e.start)
@@ -77,7 +140,8 @@ function requestsFor(e: EventInstance, now: number): { fire: number; request: No
   const leave = e.remindBeforeLeave && e.leaveAt ? Date.parse(e.leaveAt) : null
   const anchor = leave ?? start
   const timeText = e.allDay ? 'All day' : time(new Date(start))
-  const out: { fire: number; request: Notifications.NotificationRequestInput }[] = []
+  const out: Planned[] = []
+  const focus = focusTag(e.memberIds, person)
   for (const m of e.reminders) {
     const fire = anchor - m * 60_000
     if (fire <= now || fire > now + HORIZON) continue
@@ -88,7 +152,8 @@ function requestsFor(e: EventInstance, now: number): { fire: number; request: No
       fire,
       request: {
         identifier: `${PREFIX}${e.id}:${e.start}:${m}`,
-        content: { title: e.title, body, sound: 'default', data: { route } },
+        // iOS: Snooze / Open; a leave-by breaks through Focus where the build can (Time Sensitive).
+        content: { title: e.title, body, sound: 'default', data: { route, focus, urgent: leave != null }, categoryIdentifier: IOS ? 'event' : undefined },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire, channelId: CHANNEL },
       },
     })

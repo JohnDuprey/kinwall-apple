@@ -56,8 +56,10 @@ export default function App() {
     const active = AppState.addEventListener('change', (s) => { if (s === 'active') take() })
     return () => { sub?.remove(); active.remove() }
   }, [])
-  // A tapped reminder opens its event.
+  // A tapped reminder, or its Open, opens its event; its other buttons (Snooze, Taken, Done) run
+  // natively without opening the page (native/ios/NotificationActions.swift).
   useEffect(() => {
+    if (tapped && tapped.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER && tapped.actionIdentifier !== 'open') return
     const r = tapped?.notification.request.content.data?.route
     if (typeof r === 'string') setRoute(r)
   }, [tapped])
