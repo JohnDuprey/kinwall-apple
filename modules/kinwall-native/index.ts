@@ -18,6 +18,8 @@ type KinwallNative = {
   spotlightClear?(): Promise<void>
   /** iOS: a family.kinwall.app:/open link from Siri or a Control (native/ios/OpenIntents.swift), once. */
   takeLink?(): string | null
+  /** Android: the vCard text of a contact shared to the app (plugins/withKinwallNative.js), once. */
+  takeSharedContacts?(): string | null
   /** iOS: after src/reminders.ts schedules, sets what expo-notifications can't: the Focus filter's
    * tag (data.focus) and, in a build signed for it, Time Sensitive (data.urgent). */
   tagReminders?(): Promise<void>

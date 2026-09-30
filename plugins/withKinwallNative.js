@@ -134,18 +134,43 @@ const withAppHooks = (config) =>
     return c
   })
 
-// Android's share sheet: "Kinwall" takes shared text (a browser shares a page as its link), and
-// MainActivity turns it into the app link the JavaScript already routes (src/App.tsx routeFor),
-// family.kinwall.app:/open?to=recipes/import&url=<first link in the text>, before React Native
-// reads the intent. The iOS equivalent is targets/share.
+// Android's share sheet: "Kinwall" takes shared text (a browser shares a page as its link) and
+// shared contacts (vCards), and MainActivity turns them into the app links the JavaScript already
+// routes (src/links.ts routeFor) before React Native reads the intent: a link becomes
+// family.kinwall.app:/open?to=recipes/import&url=<first link in the text>; a contact's vCard goes
+// to the cache for KinwallNative.takeSharedContacts, and ?to=contacts/import opens the page's
+// review (src/WebShell.tsx). The iOS equivalent is targets/share.
+const VCARD_TYPES = ['text/x-vcard', 'text/vcard', 'text/directory']
 const SHARE_KOTLIN = String.raw`
   // A shared link (ACTION_SEND text) becomes family.kinwall.app:/open?to=recipes/import&url=<link>.
   private fun shareToLink(intent: Intent?) {
-    if (intent?.action != Intent.ACTION_SEND) return
+    if (intent == null || shareContacts(intent) || intent.action != Intent.ACTION_SEND) return
     val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
     val link = Regex("https?://[^\\s<>\"]+").find(text)?.value?.trimEnd('.', ',', ')', '!', '?', ';', ':', '\'', '"') ?: return
     intent.action = Intent.ACTION_VIEW
     intent.data = Uri.parse("family.kinwall.app:/open?to=recipes%2Fimport&url=" + Uri.encode(link))
+  }
+
+  // Shared contacts (ACTION_SEND or ACTION_SEND_MULTIPLE of a vCard): their text goes to the cache
+  // (KinwallNativeModule's takeSharedContacts) and the intent becomes ?to=contacts/import; n= makes
+  // each share a new link. A contact that can't be read still opens Contacts.
+  private fun shareContacts(intent: Intent): Boolean {
+    if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return false
+    if (intent.type?.lowercase() !in listOf("text/x-vcard", "text/vcard", "text/directory")) return false
+    val uris = if (intent.action == Intent.ACTION_SEND_MULTIPLE) IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+      else listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+    val file = File(cacheDir, "shared-contacts.vcf")
+    try {
+      // ponytail: read in full on the main thread; fine for the few contacts people share at once.
+      val text = uris.joinToString("\r\n") { uri -> contentResolver.openInputStream(uri)?.use { String(it.readBytes(), Charsets.UTF_8) } ?: "" }
+        .ifBlank { intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty() }
+      if (text.contains("BEGIN:VCARD", ignoreCase = true)) file.writeText(text) else file.delete()
+    } catch (e: Exception) {
+      file.delete()
+    }
+    intent.action = Intent.ACTION_VIEW
+    intent.data = Uri.parse("family.kinwall.app:/open?to=contacts%2Fimport&n=" + System.currentTimeMillis())
+    return true
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -157,16 +182,21 @@ const withShareIntent = (config) => {
   config = withAndroidManifest(config, (c) => {
     const activity = AndroidConfig.Manifest.getMainActivityOrThrow(c.modResults)
     const filters = (activity['intent-filter'] ??= [])
-    if (!filters.some((f) => f.action?.some((a) => a.$['android:name'] === 'android.intent.action.SEND'))) {
-      filters.push({ action: [{ $: { 'android:name': 'android.intent.action.SEND' } }], category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }], data: [{ $: { 'android:mimeType': 'text/plain' } }] })
+    const has = (action, type) => filters.some((f) => f.action?.some((a) => a.$['android:name'] === action) && f.data?.some((d) => d.$['android:mimeType'] === type))
+    const add = (action, types) => {
+      if (types.every((t) => has(action, t))) return
+      filters.push({ action: [{ $: { 'android:name': action } }], category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }], data: types.map((t) => ({ $: { 'android:mimeType': t } })) })
     }
+    add('android.intent.action.SEND', ['text/plain'])
+    add('android.intent.action.SEND', VCARD_TYPES)
+    add('android.intent.action.SEND_MULTIPLE', VCARD_TYPES)
     return c
   })
   return withMainActivity(config, (c) => {
     let src = c.modResults.contents
     if (src.includes('shareToLink')) return c
     if (c.modResults.language !== 'kt' || !src.includes('super.onCreate(')) throw new Error('withShareIntent: the MainActivity template changed; update the patch')
-    src = src.replace(/\nimport android\.os\.Bundle\n/, '\nimport android.content.Intent\nimport android.net.Uri\nimport android.os.Bundle\n')
+    src = src.replace(/\nimport android\.os\.Bundle\n/, '\nimport android.content.Intent\nimport android.net.Uri\nimport android.os.Bundle\nimport androidx.core.content.IntentCompat\nimport java.io.File\n')
     src = src.replace(/(\n\s*)super\.onCreate\(/, '$1shareToLink(intent)$1super.onCreate(')
     src = src.replace(/\n}\s*$/, `\n${SHARE_KOTLIN}}\n`)
     c.modResults.contents = src

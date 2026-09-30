@@ -5,7 +5,8 @@
  * ?to=recipes/import&url=<page> (from an Android share) →
  * "recipes/import?url=<page>"; a trip's Live Activity, ?to=lists/<id>/shop → shopping mode
  * (Siri adds &store=); Siri and the Controls, ?to=lists&list=<id> and ?to=night; Spotlight,
- * ?to=meals&recipe=<id> and ?to=contacts&contact=<id>; anything else → null. */
+ * ?to=meals&recipe=<id> and ?to=contacts&contact=<id>; a shared contact, ?to=contacts/import; anything
+ * else → null. */
 export function routeFor(link: string): string | null {
   const m = /^family\.kinwall\.app:\/*open\?(.*)$/.exec(link)
   if (!m) return null
@@ -15,6 +16,8 @@ export function routeFor(link: string): string | null {
     const page = q.get('url')
     return page && /^https?:\/\/[^\s]+$/i.test(page) && page.length <= 2000 ? `recipes/import?url=${encodeURIComponent(page)}` : null
   }
+  // A contact shared on Android (plugins/withKinwallNative.js): WebShell takes its vCard from the native module.
+  if (to === 'contacts/import') return to
   // Ids land in page script, so only plain id characters pass.
   const id = (v: string | null) => (v && /^[A-Za-z0-9_-]+$/.test(v) ? v : null)
   // Shopping mode; Siri's "Start shopping at <store>" adds the store (the web app picks it up once
@@ -43,4 +46,15 @@ export function routeFor(link: string): string | null {
 export function groceriesRoute(route: string, groceriesId: string | null | undefined): string {
   if (!groceriesId || !/^[A-Za-z0-9_-]+$/.test(groceriesId)) return 'lists'
   return route === 'groceries/shop' ? `lists/${groceriesId}/shop` : `lists?list=${groceriesId}`
+}
+
+/** Page script for a shared contact: opens Contacts and hands the vCard to the page's import review
+ * (web/src/native.ts receiveSharedContacts), without photos (Kinwall ignores them, and they're most
+ * of a card's size). Just opens Contacts when there's no vCard, or it's over the page's 2 MB. */
+export function importContactsScript(vcard: string | null | undefined): string {
+  const open = `location.hash = '#/contacts'; true;`
+  // A photo, logo, sound or key property and its folded lines (those starting with a space or tab).
+  const card = vcard?.replace(/^(PHOTO|LOGO|SOUND|KEY)[;:].*(\r?\n[ \t].*)*\r?\n/gim, '')
+  if (!card || card.length > 2_000_000 || !/BEGIN:VCARD/i.test(card)) return open
+  return `location.hash = '#/contacts'; window.dispatchEvent(new CustomEvent('kinwall:import-contacts', { detail: ${JSON.stringify(card)} })); true;`
 }

@@ -19,6 +19,7 @@ import { syncSpotlight } from './spotlight'
 import KinwallNative from '../modules/kinwall-native'
 import * as Crypto from 'expo-crypto'
 import { bridgeMessage, sameOrigin } from './bridge'
+import { importContactsScript } from './links'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
@@ -153,8 +154,10 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   }, [])
 
   // 'night' (Siri, Control Center): the event the header's 🌙 Night screen button sends (web/src/Screensaver.tsx SAVER_START_EVENT).
+  // 'contacts/import' (Android's share sheet): the shared vCard MainActivity left with the native module.
   const go = (to: string) => web.current?.injectJavaScript(to === 'night'
     ? `window.dispatchEvent(new Event('kinwall:screensaver-start')); true;`
+    : to === 'contacts/import' ? importContactsScript(KinwallNative?.takeSharedContacts?.())
     : `location.hash = ${JSON.stringify('#/' + to)}; true;`)
   const isKinwall = (u: string) => sameOrigin(u, url)
 

@@ -1,7 +1,7 @@
 // node --test test/ (npm test). The app's family.kinwall.app:/open links: widgets, Live Activities, shares.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { groceriesRoute, routeFor } from '../src/links.ts'
+import { groceriesRoute, routeFor, importContactsScript } from '../src/links.ts'
 
 test('routeFor: tabs, a chore to tick, a recipe to import', () => {
   assert.equal(routeFor('family.kinwall.app:/open?to=calendar'), 'calendar')
@@ -42,4 +42,21 @@ test('Android shortcuts and tiles: Groceries, found by the app', () => {
   assert.equal(groceriesRoute('groceries/shop', 'l1'), 'lists/l1/shop')
   assert.equal(groceriesRoute('groceries', null), 'lists')
   assert.equal(groceriesRoute('groceries/shop', "x')"), 'lists')
+})
+
+test('routeFor: a contact shared on Android opens the page\'s contact import', () => {
+  assert.equal(routeFor('family.kinwall.app:/open?to=contacts%2Fimport'), 'contacts/import')
+})
+
+test('importContactsScript: hands the vCard to the page without its photo, or just opens Contacts', () => {
+  const card = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ms. Park\r\nPHOTO;ENCODING=b;TYPE=JPEG:AAAA\r\n BBBB\r\n CCCC\r\nTEL:555-010-1234\r\nEND:VCARD'
+  const script = importContactsScript(card)
+  const m = /detail: ("(?:[^"\\]|\\.)*") \}/.exec(script)
+  assert.ok(m, script)
+  assert.equal(JSON.parse(m[1]), 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ms. Park\r\nTEL:555-010-1234\r\nEND:VCARD')
+  assert.match(script, /kinwall:import-contacts/)
+  assert.match(script, /location\.hash = '#\/contacts'/)
+  for (const nothing of [null, undefined, 'hello', 'BEGIN:VCARD\n' + 'x'.repeat(2_000_001)]) {
+    assert.equal(importContactsScript(nothing), `location.hash = '#/contacts'; true;`)
+  }
 })
