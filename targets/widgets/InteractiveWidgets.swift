@@ -15,6 +15,8 @@ struct ChoresEntry: TimelineEntry {
     let member: MemberEntity?
     let signedOut: Bool
     var demo = false
+    /// Smart Stack: a little while any are left (chores have no time of day to rise toward).
+    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: Float(chores.filter { !$0.completed }.count)) }
 }
 
 struct ChoresProvider: AppIntentTimelineProvider {

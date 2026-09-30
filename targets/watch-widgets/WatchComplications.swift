@@ -4,7 +4,8 @@ import KinwallKit
 
 // Watch complications (docs/WIDGETS-AND-WATCH.md): Next event with the leave-by countdown,
 // Chores left as a gauge, and Take now (how many medicines are due). They read the Board with the Watch's key, which the Watch app keeps in
-// the shared Keychain group (SharedKeychain.widgetStore).
+// the shared Keychain group (SharedKeychain.widgetStore). Next event and Take now set a relevance, so the
+// Smart Stack brings them up before a leave-by time and while a dose is due.
 
 @main
 struct KinwallComplications: WidgetBundle {
@@ -27,6 +28,11 @@ struct BoardEntry: TimelineEntry {
     var choresLeft: (remaining: Int, total: Int) {
         (board?.chores.reduce(0) { $0 + $1.remaining } ?? 0, board?.chores.reduce(0) { $0 + $1.total } ?? 0)
     }
+    /// The Smart Stack: rises over the hour before the next leave-by time (or start).
+    var relevance: TimelineEntryRelevance? {
+        guard let e = board?.nowAndNext(at: date).next, let at = e.leaveDate ?? e.startDate else { return nil }
+        return TimelineEntryRelevance(score: Float(max(0, 60 - at.timeIntervalSince(date) / 60)))
+    }
 }
 
 struct BoardProvider: TimelineProvider {
@@ -47,7 +53,7 @@ struct BoardProvider: TimelineProvider {
         guard let connection = try? SharedKeychain.widgetStore.load(),
               let board = try? await KinwallClient(connection).board(days: 1) else { return [BoardEntry(date: .now, board: nil)] }
         let now = Date.now
-        let changes = board.events.filter { !$0.allDay }.flatMap { [$0.startDate, $0.endDate] }.compactMap { $0 }
+        let changes = board.events.filter { !$0.allDay }.flatMap { [$0.startDate, $0.endDate, $0.leaveDate, ($0.leaveDate ?? $0.startDate)?.addingTimeInterval(-30 * 60)] }.compactMap { $0 }
             .filter { $0 > now && $0 < now.addingTimeInterval(30 * 60) }
         return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board) }
     }
@@ -123,7 +129,11 @@ struct ChoresLeftComplication: Widget {
 // MARK: - Meds due
 
 /// How many doses are due now, never which medicines: a watch face is on show.
-struct MedsEntry: TimelineEntry { let date: Date; let count: Int? }
+struct MedsEntry: TimelineEntry {
+    let date: Date; let count: Int?
+    /// The Smart Stack: up top while a dose is due.
+    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: (count ?? 0) > 0 ? 100 : 0) }
+}
 
 struct MedsProvider: TimelineProvider {
     func placeholder(in context: Context) -> MedsEntry { MedsEntry(date: .now, count: 1) }

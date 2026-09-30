@@ -41,6 +41,11 @@ struct BoardEntry: TimelineEntry {
     var choresLeft: (remaining: Int, total: Int) {
         (board?.chores.reduce(0) { $0 + $1.remaining } ?? 0, board?.chores.reduce(0) { $0 + $1.total } ?? 0)
     }
+    /// Smart Stack: rises over the hour before the next leave-by time (or start), highest once it's time to go.
+    var relevance: TimelineEntryRelevance? {
+        guard let next = nowNext.next, let at = next.leaveDate ?? next.startDate else { return nil }
+        return TimelineEntryRelevance(score: Float(max(0, 60 - at.timeIntervalSince(date) / 60)))
+    }
 }
 
 struct BoardProvider: TimelineProvider {
@@ -77,7 +82,7 @@ struct BoardProvider: TimelineProvider {
         }
         let now = Date.now
         let changes = board.events.filter { !$0.allDay && $0.date == board.today }
-            .flatMap { [$0.startDate, $0.endDate] }.compactMap { $0 }
+            .flatMap { [$0.startDate, $0.endDate, $0.leaveDate, ($0.leaveDate ?? $0.startDate)?.addingTimeInterval(-30 * 60)] }.compactMap { $0 } // and when relevance rises
             .filter { $0 > now && $0 < now.addingTimeInterval(30 * 60) }
         return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board, problem: nil, demo: demo) }
     }

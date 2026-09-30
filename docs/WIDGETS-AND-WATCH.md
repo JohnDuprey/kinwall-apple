@@ -99,8 +99,10 @@ Checked: the native module builds against the iOS 27 Simulator SDK. Needs a real
 | **Next event** with the leave-by countdown, surfacing in the Smart Stack as it nears | First |
 | **Chores left** as a gauge | First |
 | **Take now:** how many medicines are due (circular, inline, corner), never their names | Built |
-| **Groceries** open count | Later |
+| **Groceries** open count (with watchOS 26's grocery-store relevance, `RelevantContext.location(category: .foodMarket)`, so it comes up in a store with no location permission) | Later |
 | **Points** this week | Later |
+
+**Relevance (built 2026-09-30):** Next event rises in the Smart Stack over the hour before the next leave-by time (or start), and Take now while a dose is due (`TimelineEntryRelevance`, watchOS 10 and later, so watchOS 26 too). A watchOS 26 `RelevanceConfiguration` widget isn't needed for that; the grocery-store context waits for a Groceries complication.
 
 ### Watch-only touches
 
@@ -144,6 +146,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
   - **Time Sensitive** (leave-by and medicine break through a Focus and the Scheduled Summary): needs the `com.apple.developer.usernotifications.time-sensitive` entitlement, which the Personal Team's profile doesn't carry (checked 2026-09-30: signing with it fails, "Provisioning profile … doesn't include the Time Sensitive Notifications capability"). So it's off by default: `KINWALL_PUSH=1` (a paid team) or `KINWALL_TIME_SENSITIVE=1` at prebuild adds the entitlement and sets `KinwallTimeSensitive` in Info.plist, and only then does `modules/kinwall-native/ios/Reminders.swift` mark them `.timeSensitive`. Without it they're ordinary notifications.
   - Android is unchanged: no buttons, medicine reminders or chore nudge there yet.
   - Build-only so far; to check on an iPhone: each button from the Lock Screen with the app closed, a failed Taken in airplane mode, and the chore nudge setting.
+- **Smart Stack relevance (iPhone, built 2026-09-30):** Now & Next (and Today and Chores left, which share its entries) rise over the hour before the next leave-by time or start; Take now is up top while a dose is due (and not while a Focus hides it); Chores rises a little while any are left (`TimelineEntryRelevance`).
 - **Watch app (first pass):** the iPhone app creates an "Apple Watch" key and sends it over WatchConnectivity; the Watch keeps it in its own Keychain. Screens: Today (Now & Next with the countdown, then later today), My chores (asks whose Watch it is once, Anyone chores count for that person, haptic on tick), Lists (tick items, add by dictation or Scribble). Checked in the Simulator: the key arrives from the iPhone, Today shows live data, a chore ticked on the Watch is credited to the Watch's person, and list items tick off.
 - **Watch complications:** Next event (rectangular with the leave-by countdown, inline, corner) and Chores left (circular gauge), reading the Board with the Watch's key from the shared Keychain group. Built and embedded; not yet placed on a watch face in the Simulator.
 - **Siri and Shortcuts (built 2026-09-29):** App Shortcuts that work without setup, in `native/ios/SiriIntents.swift`, with lists, people, today's chores and stores as entities Siri can match in a phrase:

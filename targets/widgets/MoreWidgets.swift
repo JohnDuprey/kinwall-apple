@@ -15,6 +15,8 @@ struct DosesEntry: TimelineEntry {
     let showNames: Bool
     var signedOut = false
     var demo = false
+    /// Smart Stack: up top while a dose is due.
+    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: doses.isEmpty ? 0 : 100) }
 
     func who(_ d: DueDose) -> String { members.first { $0.id == d.memberId }.map { "\($0.avatar.map { "\($0) " } ?? "")\($0.name)" } ?? "Someone" }
     /// "Amoxicillin 5 ml" with names allowed, else the generic "Medicine".
