@@ -17,6 +17,8 @@ import { ensureWidgetKey, shareKey, syncWatch, widgetConnection } from './shared
 import { reloadWidgets } from './widgets'
 import { syncSpotlight } from './spotlight'
 import KinwallNative from '../modules/kinwall-native'
+import * as Crypto from 'expo-crypto'
+import { bridgeMessage, sameOrigin } from './bridge'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
@@ -29,6 +31,8 @@ function openOutside(url: string) {
 
 const isTablet = Platform.OS === 'ios' ? Platform.isPad : Math.min(Dimensions.get('screen').width, Dimensions.get('screen').height) >= 600
 const VERSION = Constants.expoConfig?.version ?? '0'
+// Per launch: the main-frame shim adds it to every message, and onMessage drops any without it (src/bridge.ts).
+const NONCE = Array.from(Crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
 
 /** Read by the web app to adapt (hide the Add to Home Screen card and web push, which don't
  * apply inside the app). Keep in sync with web/src/native.ts in the kinwall repo, which posts to
@@ -36,12 +40,14 @@ const VERSION = Constants.expoConfig?.version ?? '0'
  * `frame`: the family's last colors (src/appearance.ts), put on <html> before anything paints so
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
-const bridge = (token: string | null, frame: (Surface & { dark: boolean }) | null) => `
+const bridge = (origin: string, token: string | null, frame: (Surface & { dark: boolean }) | null) => `
 window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)} };
-${token ? `try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
+${token ? `if (location.origin === ${JSON.stringify(origin)}) try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
-  var post = function (m) { window.ReactNativeWebView.postMessage(JSON.stringify(m)) };
+  // The nonce stays in this closure: only this main-frame shim has it (src/bridge.ts).
+  var nonce = ${JSON.stringify(NONCE)};
+  var post = function (m) { var o = {}; for (var k in m) o[k] = m[k]; o.nonce = nonce; window.ReactNativeWebView.postMessage(JSON.stringify(o)) };
   var kinwall = { postMessage: post };
   // Our handler goes on WebKit's messageHandlers object, which loses added properties when its
   // wrapper is garbage-collected: holding references keeps it (window.webkit can't be replaced).
@@ -86,7 +92,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const [startsPairing, setStartsPairing] = useState<boolean | null>(null)
   const pending = useRef<string | null>(null)
   const canGoBack = useRef(false)
-  const host = new URL(url).host
+  const origin = new URL(url).origin
   const token = session.mode === 'oauth' ? session.tokens.accessToken : null
 
   // The launch screen waits for the page (onLoadEnd, its look, or a failed load), but not forever.
@@ -111,7 +117,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       const next = await freshTokens(session.tokens)
       if (!next) { onSignedOut(); return }
       onTokens(next)
-      web.current?.injectJavaScript(`localStorage.setItem('kinwall.apiKey', ${JSON.stringify(next.accessToken)}); true;`)
+      web.current?.injectJavaScript(`if (location.origin === ${JSON.stringify(origin)}) localStorage.setItem('kinwall.apiKey', ${JSON.stringify(next.accessToken)}); true;`)
     }
     timer = setInterval(tick, 60_000)
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') tick() })
@@ -150,14 +156,14 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const go = (to: string) => web.current?.injectJavaScript(to === 'night'
     ? `window.dispatchEvent(new Event('kinwall:screensaver-start')); true;`
     : `location.hash = ${JSON.stringify('#/' + to)}; true;`)
-  const isKinwall = (u: string) => { try { return new URL(u).host === host } catch { return false } }
+  const isKinwall = (u: string) => sameOrigin(u, url)
 
   /** Once the page is signed in (its key is in localStorage 'kinwall.apiKey'), make sure the widgets have their own key. */
-  const syncKey = () => web.current?.injectJavaScript(`window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'key', key: localStorage.getItem('kinwall.apiKey') })); true;`)
+  const syncKey = () => web.current?.injectJavaScript(`try { window.webkit.messageHandlers.kinwall.postMessage({ type: 'key', key: localStorage.getItem('kinwall.apiKey') }) } catch (e) {} true;`)
 
   const onMessage = async (e: WebViewMessageEvent) => {
-    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown; channel?: unknown; tile?: unknown }
-    try { m = JSON.parse(e.nativeEvent.data) } catch { return }
+    const m = bridgeMessage(e.nativeEvent.data, NONCE, e.nativeEvent.url, url) as { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown; channel?: unknown; tile?: unknown } | null
+    if (!m) return
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
       case 'appearance': { // web/src/native.ts: the page's look changed
@@ -223,7 +229,8 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       style={styles.web}
       source={{ uri: startsPairing ? `${url}?start=pair` : url }}
       applicationNameForUserAgent={`KinwallApp/${VERSION}`}
-      injectedJavaScriptBeforeContentLoaded={bridge(token, frame)}
+      injectedJavaScriptBeforeContentLoaded={bridge(origin, token, frame)}
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly // the default, and required: the nonce is in here
       onMessage={onMessage}
       onLoadStart={() => setLoading(true)}
       onLoadEnd={() => { hideSplash(); setLoading(false); syncKey(); if (pending.current) { go(pending.current); pending.current = null } }}
