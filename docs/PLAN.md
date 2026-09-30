@@ -22,7 +22,7 @@ Native apps for the family who already use Kinwall. On iPhone and iPad the app s
 | **App Groups** (app and widget share storage) | No | Yes |
 | **Push notifications** (APNs), including Live Activity push-to-start | No | Yes |
 | **Time Sensitive notifications** (leave-by and medicine reminders break through a Focus) | No: the Personal Team's profile doesn't carry the entitlement, so it's off unless prebuilt with `KINWALL_TIME_SENSITIVE=1` or `KINWALL_PUSH=1` | Yes |
-| Reminder buttons (Snooze, Taken, Done) | Yes | Yes |
+| Reminder buttons (Snooze, Taken, Done), the Focus filter, Smart Stack relevance, small Live Activities for the Watch and CarPlay | Yes | Yes |
 | Live Activities started by the app (cooking timer, shopping trip, leave-by while open) | Yes | Yes |
 | iCloud, Sign in with Apple, Associated Domains (passkeys, universal links) | No | Yes |
 | TestFlight, App Store | No | Yes |

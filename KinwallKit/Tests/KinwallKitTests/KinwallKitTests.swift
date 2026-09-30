@@ -139,3 +139,12 @@ func stubSession() -> URLSession {
     #expect(next?.id == "b")
     #expect(next?.leaveDate == ISO8601DateFormatter().date(from: "2026-09-26T19:40:00Z"))
 }
+
+@Test func focusOnlyMineKeepsFamilyEventsAndTheirOwn() {
+    let f = FocusSettings(onlyMine: true, hideHealth: false, person: "sam")
+    #expect(f.shows([]))
+    #expect(f.shows(["sam", "maya"]))
+    #expect(!f.shows(["maya"]))
+    #expect(FocusSettings(onlyMine: true, hideHealth: false, person: nil).shows(["maya"])) // a shared device: nothing to narrow to
+    #expect(FocusSettings(onlyMine: false, hideHealth: true, person: "sam").shows(["maya"]))
+}

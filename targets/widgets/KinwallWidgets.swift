@@ -70,11 +70,13 @@ struct BoardProvider: TimelineProvider {
     /// One fetch, then an entry at every moment today's picture changes (an event starting or
     /// ending), so Now & Next stays right between fetches without touching the network.
     private func load() async -> [BoardEntry] {
-        let board: Board
+        var board: Board
         var demo = false
         if let connection = try? SharedKeychain.widgetStore.load() {
             guard let fetched = try? await KinwallClient(connection).board(days: 7) else { return [BoardEntry(date: .now, board: nil, problem: .offline)] }
             board = fetched
+            // The Kinwall Focus filter's "Only my reminders": this person's events and family ones.
+            if let focus = FocusSettings.current() { board = Board(today: board.today, events: board.events.filter { focus.shows($0.memberIds) }, items: board.items, chores: board.chores) }
         } else if Demo.isOn {
             board = Sample.board; demo = true
         } else {

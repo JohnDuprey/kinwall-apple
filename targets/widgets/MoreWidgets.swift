@@ -15,8 +15,9 @@ struct DosesEntry: TimelineEntry {
     let showNames: Bool
     var signedOut = false
     var demo = false
-    /// Smart Stack: up top while a dose is due.
-    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: doses.isEmpty ? 0 : 100) }
+    var hidden = FocusSettings.current()?.hideHealth == true
+    /// Smart Stack: up top while a dose is due (never while hidden by a Focus).
+    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: doses.isEmpty || hidden ? 0 : 100) }
 
     func who(_ d: DueDose) -> String { members.first { $0.id == d.memberId }.map { "\($0.avatar.map { "\($0) " } ?? "")\($0.name)" } ?? "Someone" }
     /// "Amoxicillin 5 ml" with names allowed, else the generic "Medicine".
@@ -55,7 +56,7 @@ struct DosesProvider: AppIntentTimelineProvider {
 struct TakeNowWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "TakeNow", intent: TakeNowConfig.self, provider: DosesProvider()) { entry in
-            TakeNowView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
+            TakeNowView(entry: entry).modifier(DemoBadge(on: entry.demo)).modifier(FocusHidden(on: entry.hidden)).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Take now")
         .description("Medicines due now, with Taken. Names stay hidden unless you turn them on.")

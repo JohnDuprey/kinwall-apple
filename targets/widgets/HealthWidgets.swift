@@ -40,12 +40,31 @@ struct OwnerProblemView: View {
     }
 }
 
+/// The Kinwall Focus filter's "Hide health widgets" (native/ios/FocusFilter.swift): Take now,
+/// Check-in and Energy say so instead of showing anything.
+struct FocusHidden: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on {
+            ViewThatFits {
+                Label("Hidden during this Focus", systemImage: "moon.fill").font(.caption.weight(.semibold))
+                Image(systemName: "moon.fill")
+            }
+            .foregroundStyle(.secondary)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Daily check-in
 
 struct CheckInEntry: TimelineEntry {
     let date: Date
     let owner: Owner
     let check: TempCheck?
+    /// The Kinwall Focus filter's "Hide health widgets" (FocusHidden).
+    var hidden = FocusSettings.current()?.hideHealth == true
     var demo: Bool { if case .demo = owner { true } else { false } }
     var person: String? { if case .person(_, let id) = owner { id } else if demo { DemoFamily.checkInPerson } else { nil } }
 }
@@ -80,7 +99,7 @@ struct CheckInProvider: TimelineProvider {
 struct CheckInWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "CheckIn", provider: CheckInProvider()) { entry in
-            CheckInView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
+            CheckInView(entry: entry).modifier(DemoBadge(on: entry.demo)).modifier(FocusHidden(on: entry.hidden)).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Daily check-in")
         .description("How you slept and how you feel in the morning; how the day went in the evening. Only on your own iPhone.")
@@ -181,6 +200,7 @@ struct BatteryEntry: TimelineEntry {
     let date: Date
     let owner: Owner
     let battery: Battery?
+    var hidden = FocusSettings.current()?.hideHealth == true
     var demo: Bool { if case .demo = owner { true } else { false } }
 }
 
@@ -209,7 +229,7 @@ struct BatteryProvider: TimelineProvider {
 struct BatteryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "Battery", provider: BatteryProvider()) { entry in
-            BatteryView(entry: entry).modifier(DemoBadge(on: entry.demo)).containerBackground(.fill.tertiary, for: .widget)
+            BatteryView(entry: entry).modifier(DemoBadge(on: entry.demo)).modifier(FocusHidden(on: entry.hidden)).containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Energy battery")
         .description("A rough guess at your energy today. On the Lock Screen, only the gauge. Only on your own iPhone.")

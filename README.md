@@ -47,6 +47,8 @@ npx expo run:ios                # builds, installs on a simulator, starts Metro
 
 `npx expo run:ios --device <udid>` picks the simulator. Siri, Shortcuts and the Controls need a build signed with a team, even in the Simulator: re-sign the build with `IDENTITY=<your Apple Development identity> scripts/sign-simulator.sh <path>/Kinwall.app` and install it with `xcrun simctl install`. A Debug build for them also needs `ENABLE_DEBUG_DYLIB=NO` on the `xcodebuild` line. The Watch app is embedded in the iPhone app; to try it on a paired Watch simulator, install `Kinwall.app/Watch/KinwallWatch.app` from the build products with `xcrun simctl install <watch udid> …`.
 
+On iPhone, reminders have buttons that work without opening the app: **Snooze** and **Open** on event reminders, **Taken** and **Snooze** on medicine reminders (a person's own iPhone), and **Done** on the chore nudge (off until turned on in iPhone Settings → Kinwall). A **Kinwall Focus filter** (Settings → Focus) can quiet other people's reminders and hide the health widgets. Leave-by and medicine reminders break through a Focus only in a build prebuilt with `KINWALL_TIME_SENSITIVE=1` (or `KINWALL_PUSH=1`), since a free Apple ID can't sign that entitlement. See [docs/WIDGETS-AND-WATCH.md](docs/WIDGETS-AND-WATCH.md#status).
+
 ### Android
 
 JDK 17 and the Android SDK (Android Studio installs both; set `ANDROID_HOME`), then:
