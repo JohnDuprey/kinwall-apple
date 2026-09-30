@@ -37,7 +37,7 @@ const VERSION = Constants.expoConfig?.version ?? '0'
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
 const bridge = (token: string | null, frame: (Surface & { dark: boolean }) | null) => `
-window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())} };
+window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')} };
 ${token ? `try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
@@ -156,7 +156,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const syncKey = () => web.current?.injectJavaScript(`window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'key', key: localStorage.getItem('kinwall.apiKey') })); true;`)
 
   const onMessage = async (e: WebViewMessageEvent) => {
-    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown }
+    let m: { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown; channel?: unknown }
     try { m = JSON.parse(e.nativeEvent.data) } catch { return }
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
@@ -180,6 +180,9 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       case 'leaveByPush':
         if (session.mode !== 'demo') setLeaveByPush(!!m.on && (await Notifications.getPermissionsAsync()).granted)
         break
+      // Android (window.kinwallNative.notificationSettings): a channel's page in Android Settings, e.g.
+      // "medicine" to let it through Do Not Disturb (modules/kinwall-native/android Channels.kt).
+      case 'notificationSettings': KinwallNative?.openNotificationSettings?.(typeof m.channel === 'string' ? m.channel : null); break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
         if (m.reason === 'rejected' && session.mode === 'oauth') {

@@ -23,6 +23,11 @@ type KinwallNative = {
   tagReminders?(): Promise<void>
   /** Android: the next day's leave-by alarms (src/leaveBy.ts), replacing the last ones. */
   leaveBySchedule(alarms: string): Promise<void>
+  /** Android: the notification channels (Channels.kt), before scheduling on them. */
+  ensureChannels?(): Promise<void>
+  /** Android: a channel's page in Android Settings (e.g. "medicine", to let it through Do Not
+   * Disturb); the app's notification settings without one. */
+  openNotificationSettings?(channel: string | null): void
   /** Android: the navigation bar's buttons light (on a dark page) or dark. */
   navigationBar(dark: boolean): void
   addListener(event: 'watchStateChanged', listener: () => void): EventSubscription

@@ -11,12 +11,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
-import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import okhttp3.MediaType.Companion.toMediaType
@@ -50,7 +47,8 @@ import kotlin.concurrent.thread
  * until Stop (or ten minutes).
  */
 object Countdowns {
-  const val CHANNEL = "countdowns"
+  /** Each kind's channel (Channels.kt): the page's Settings line follows the cooking and shopping one. */
+  private val CHANNELS = mapOf("cooking" to Channels.COUNTDOWNS, "shopping" to Channels.COUNTDOWNS, "leaveBy" to Channels.LEAVE_BY, "medication" to Channels.MEDICINE)
   private val IDS = mapOf("cooking" to 7101, "shopping" to 7102, "leaveBy" to 7103, "medication" to 7104)
   private const val PREFS = "family.kinwall.countdowns"
   private const val SCHEDULE = "schedule"
@@ -62,7 +60,7 @@ object Countdowns {
   const val ACTION_DOSE = "family.kinwall.app.DOSE"
   private const val SNOOZE = 10 * MIN
   private const val LINK = "family.kinwall.app:/open?to="
-  private const val RING_CHANNEL = "cooking_timers"
+  private const val GROUP = "family.kinwall.countdown."
   private const val RINGS = "rings"
   private const val RING_TAG = "cook"
   const val ACTION_RING_STOP = "family.kinwall.app.RING_STOP"
@@ -73,15 +71,8 @@ object Countdowns {
   fun enabled(c: Context): Boolean {
     val nm = NotificationManagerCompat.from(c)
     if (!nm.areNotificationsEnabled()) return false
-    return Build.VERSION.SDK_INT < 26 || nm.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
+    return Build.VERSION.SDK_INT < 26 || nm.getNotificationChannel(Channels.COUNTDOWNS)?.importance != NotificationManager.IMPORTANCE_NONE
   }
-
-  private fun channel(c: Context) = NotificationManagerCompat.from(c).createNotificationChannel(
-    NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_DEFAULT)
-      .setName("Timers and countdowns")
-      .setDescription("Cooking timers, shopping trips, and when to leave or start prep")
-      .build()
-  )
 
   // ---- From the web app ----
 
@@ -193,23 +184,15 @@ object Countdowns {
   @SuppressLint("MissingPermission")
   fun ring(c: Context, item: JSONObject) {
     if (onScreen(c)) return
-    val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-    NotificationManagerCompat.from(c).createNotificationChannel(
-      NotificationChannelCompat.Builder(RING_CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH)
-        .setName("Cooking timers")
-        .setDescription("Rings when a cooking timer is done")
-        .setSound(sound, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-        .setVibrationEnabled(true)
-        .setVibrationPattern(longArrayOf(0, 600, 400, 600))
-        .build()
-    )
+    Channels.ensure(c)
     val id = ringUri(item).hashCode()
     val stop = PendingIntent.getBroadcast(c, id, Intent(c, CountdownReceiver::class.java).setAction(ACTION_RING_STOP).putExtra("id", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val open = PendingIntent.getActivity(c, id, openIntent(c, null), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    fun base(title: String) = NotificationCompat.Builder(c, RING_CHANNEL)
+    fun base(title: String) = NotificationCompat.Builder(c, Channels.COOKING)
       .setSmallIcon(R.drawable.kinwall_countdown)
       .setContentTitle(title)
       .setColor(accent(c))
+      .setGroup(GROUP + "ring")
       .setCategory(NotificationCompat.CATEGORY_ALARM)
       .setPriority(NotificationCompat.PRIORITY_MAX)
     val n = base(item.optString("title").ifEmpty { "Time's up" })
@@ -243,14 +226,17 @@ object Countdowns {
     val look = try { look(c, kind, JSONObject(json), now) } catch (e: Exception) { null } // a payload we can't read shows nothing
     if (look == null) { end(c, kind); return }
     look.next?.let { alarm(c, kindUri(kind), it, null) } ?: cancelAlarm(c, kindUri(kind))
-    channel(c)
+    Channels.ensure(c)
     val accent = accent(c)
     val open = PendingIntent.getActivity(c, IDS.getValue(kind), openIntent(c, look.link), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-    fun base(title: String) = NotificationCompat.Builder(c, CHANNEL)
+    // Each kind in a group of its own: Android bundles a busy app's ungrouped notifications under
+    // one summary, and a bundled one can't be promoted to a Live Update (Android 16).
+    fun base(title: String) = NotificationCompat.Builder(c, CHANNELS.getValue(kind))
       .setSmallIcon(R.drawable.kinwall_countdown)
       .setContentTitle(title)
       .setColor(accent)
+      .setGroup(GROUP + kind)
       .setOngoing(look.ongoing)
       .apply {
         if (look.countdownTo != null) setUsesChronometer(true).setChronometerCountDown(true).setWhen(look.countdownTo).setShowWhen(true)
@@ -385,8 +371,9 @@ object Countdowns {
     flags or PendingIntent.FLAG_IMMUTABLE,
   )
 
-  /** Exact when allowed ("Alarms & reminders" in the app's settings); otherwise Android may run it
-   * some minutes late (setAndAllowWhileIdle), which only delays the countdown's start. */
+  /** Exact: USE_EXACT_ALARM (Android 13 and later) and SCHEDULE_EXACT_ALARM (12L and earlier) are
+   * granted at install. Should neither be (a Play build without the declaration, say), Android may
+   * run it some minutes late (setAndAllowWhileIdle), which only delays the countdown's start. */
   private fun alarm(c: Context, uri: Uri, at: Long, item: String?) {
     val am = c.getSystemService(AlarmManager::class.java) ?: return
     val pi = pending(c, uri, item, PendingIntent.FLAG_UPDATE_CURRENT)
@@ -411,16 +398,26 @@ object Countdowns {
    * and comes back by itself then. The demo just does it; signed out or offline, nothing changes. */
   fun dose(c: Context, action: String) {
     val p = JSONObject(prefs(c).getString("medication", null) ?: return)
-    val body = JSONObject().put("date", p.getString("date")).put("time", p.getString("time")).put("action", action)
-    if (!send(c, "POST", "api/medications/${Uri.encode(p.getString("medicationId"))}/doses", body)) return
-    if (action == "snooze") {
-      prefs(c).edit().putString("medication", p.put("snoozedUntil", System.currentTimeMillis() + SNOOZE).toString()).apply()
-      show(c, "medication")
-    } else end(c, "medication")
+    markDose(c, p.getString("medicationId"), p.getString("date"), p.getString("time"), action)
+  }
+
+  /** Taken or snooze for one dose (also from a medicine reminder's buttons, ReminderActions.kt):
+   * the countdown for that same dose follows. False when it couldn't be saved. */
+  fun markDose(c: Context, medicationId: String, date: String, time: String, action: String): Boolean {
+    val body = JSONObject().put("date", date).put("time", time).put("action", action)
+    if (!send(c, "POST", "api/medications/${Uri.encode(medicationId)}/doses", body)) return false
+    val p = prefs(c).getString("medication", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+    if (p != null && p.optString("medicationId") == medicationId && p.optString("date") == date && p.optString("time") == time) {
+      if (action == "snooze") {
+        prefs(c).edit().putString("medication", p.put("snoozedUntil", System.currentTimeMillis() + SNOOZE).toString()).apply()
+        show(c, "medication")
+      } else end(c, "medication")
+    }
+    return true
   }
 
   /** A call with the widgets' key; true in the demo (nothing to save), false signed out or offline. */
-  private fun send(c: Context, method: String, path: String, body: JSONObject): Boolean {
+  fun send(c: Context, method: String, path: String, body: JSONObject): Boolean {
     val connection = Keychain.get(c, "family.kinwall.widgets")?.let { JSONObject(it) }
       ?: return Keychain.get(c, "family.kinwall.demo") != null
     val url = Uri.parse(connection.getString("baseURL")).buildUpon().appendEncodedPath(path).build().toString()

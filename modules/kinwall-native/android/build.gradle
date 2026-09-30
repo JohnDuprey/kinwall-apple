@@ -17,4 +17,7 @@ android {
 dependencies {
   // Already in every React Native app; "Got it" needs PATCH, which HttpURLConnection can't send.
   implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+  // ReminderActions.kt handles the reminders' buttons as expo-notifications' receiver. The app has
+  // expo-notifications already: its prebuilt package, or its source when Expo builds from source.
+  compileOnly findProject(':expo-notifications') ?: "host.exp.exponent:expo.modules.notifications:${new groovy.json.JsonSlurper().parse(rootProject.file('../node_modules/expo-notifications/package.json')).version}"
 }

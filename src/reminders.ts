@@ -22,6 +22,10 @@ const CAP = 60
 /** How far ahead to schedule. Refreshes happen well within this. */
 const HORIZON = 48 * 3600 * 1000
 export const CHANNEL = 'reminders'
+/** Android's other channels (modules/kinwall-native/android Channels.kt makes them all). */
+const LEAVE_BY = 'leave_by', MEDICINE = 'medicine', CHORES = 'chores'
+const IOS = Platform.OS === 'ios'
+const ensureChannels = () => (IOS ? undefined : KinwallNative?.ensureChannels?.().catch(() => {}))
 
 // iOS: a cooking timer's notification (modules/kinwall-native/ios/CookingAlarms.swift, id "cook:…")
 // stays quiet while the app is open, since cooking mode beeps itself.
@@ -34,15 +38,14 @@ Notifications.setNotificationHandler({
 
 /** Asks once; later calls return the saved answer without a prompt. */
 export async function requestPermission(): Promise<void> {
-  if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync(CHANNEL, { name: 'Event reminders', importance: Notifications.AndroidImportance.HIGH }).catch(() => {})
+  await ensureChannels()
   await Notifications.requestPermissionsAsync().catch(() => {})
 }
 
-// iOS: the buttons on each kind (native/ios/NotificationActions.swift runs them without opening
-// the app, with the widgets' key). Android has none yet.
-const IOS = Platform.OS === 'ios'
+// The buttons on each kind, run without opening the app with the widgets' key: on iPhone by
+// native/ios/NotificationActions.swift, on Android by modules/kinwall-native/android ReminderActions.kt.
 const later = { opensAppToForeground: false }
-const categories = IOS ? Promise.all([
+const categories = Promise.all([
   Notifications.setNotificationCategoryAsync('event', [
     { identifier: 'snooze', buttonTitle: 'Snooze 10 min', options: later },
     { identifier: 'open', buttonTitle: 'Open', options: { opensAppToForeground: true } },
@@ -52,7 +55,7 @@ const categories = IOS ? Promise.all([
     { identifier: 'snooze', buttonTitle: 'Snooze 10 min', options: later },
   ]),
   Notifications.setNotificationCategoryAsync('chore', [{ identifier: 'done', buttonTitle: 'Done', options: later }]),
-]).catch(() => {}) : null
+]).catch(() => {})
 
 type Planned = { fire: number; request: Notifications.NotificationRequestInput }
 
@@ -65,7 +68,8 @@ export async function refreshReminders(): Promise<void> {
   const list = await events(connection, new Date(now - 3600_000), new Date(now + HORIZON)).catch(() => null)
   if (!list) return
   await scheduleLeaveBy(connection, list as LeaveByEvent[]) // Android: the leave-by countdowns
-  const person = IOS ? await me(connection).then((m) => (m.owner && m.owner !== 'shared' ? m.owner : null)).catch(() => null) : null
+  await ensureChannels()
+  const person = await me(connection).then((m) => (m.owner && m.owner !== 'shared' ? m.owner : null)).catch(() => null)
   const planned = [...list.flatMap((e) => requestsFor(e, now, person)), ...(person ? await personal(connection, person, now) : [])]
     .sort((a, b) => a.fire - b.fire).slice(0, CAP)
   await categories
@@ -81,7 +85,7 @@ export async function clearReminders(): Promise<void> {
   await Promise.all(old.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier)))
 }
 
-// ---- iPhone, a person's own device: medicine reminders and the chore nudge (src/reminderPlans.ts) ----
+// ---- A person's own phone: medicine reminders and the chore nudge (src/reminderPlans.ts) ----
 
 /** Medicine text stays generic on the Lock Screen: never the medicine's name (the per-device
  * "medicine names" choice lives with the web's push settings, which the app can't read). */
@@ -90,25 +94,33 @@ async function personal(c: Connection, person: string, now: number): Promise<Pla
   const meds = await medicationDay(c, person).catch(() => null) // 404: the family has medicines off
   for (const d of meds ? doseReminders(meds, now) : []) {
     if (d.at <= now || d.at > now + HORIZON) continue
-    out.push(at(d.at, `${PREFIX}med:${d.medicationId}:${d.date}:${d.time}`, 'medicine', 'Time for your medicine', `${time(new Date(d.at))} dose`,
+    out.push(at(d.at, `${PREFIX}med:${d.medicationId}:${d.date}:${d.time}`, 'medicine', MEDICINE, 'Time for your medicine', `${time(new Date(d.at))} dose`,
       { route: 'calendar', medicationId: d.medicationId, date: d.date, time: d.time, urgent: true }))
   }
-  // The chore nudge: off unless turned on in iPhone Settings → Kinwall (native/ios/Settings.bundle).
-  if (Settings.get('choreNudge')) {
-    const hhmm = String(Settings.get('choreNudgeTime') ?? '08:00')
+  // The chore nudge: off unless turned on, in iPhone Settings → Kinwall (native/ios/Settings.bundle),
+  // or on Android by turning on its channel, Chores, which starts off (Channels.kt); 8:00 AM there.
+  if (await choreNudgeOn()) {
+    const hhmm = IOS ? String(Settings.get('choreNudgeTime') ?? '08:00') : '08:00'
     for (const offset of [0, 1]) {
       const date = localDay(now, offset)
       const fire = localAt(date, hhmm)
       if (fire <= now) continue
       const nudge = choreNudge(await choresOn(c, date).catch(() => []), person)
-      if (nudge) out.push(at(fire, `${PREFIX}chore:${date}`, nudge.choreId ? 'chore' : undefined, nudge.title, nudge.body, { route: 'chores', choreId: nudge.choreId, date }))
+      if (nudge) out.push(at(fire, `${PREFIX}chore:${date}`, nudge.choreId ? 'chore' : undefined, CHORES, nudge.title, nudge.body, { route: 'chores', choreId: nudge.choreId, date }))
     }
   }
   return out
 }
 
-function at(fire: number, identifier: string, category: string | undefined, title: string, body: string, data: Record<string, unknown>): Planned {
-  return { fire, request: { identifier, content: { title, body, sound: 'default', data, categoryIdentifier: category }, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire } } }
+async function choreNudgeOn(): Promise<boolean> {
+  if (IOS) return !!Settings.get('choreNudge')
+  const channel = await Notifications.getNotificationChannelAsync(CHORES).catch(() => null)
+  return !!channel && channel.importance > Notifications.AndroidImportance.NONE
+}
+
+/** `channelId`: Android's channel; iOS has none. */
+function at(fire: number, identifier: string, category: string | undefined, channelId: string, title: string, body: string, data: Record<string, unknown>): Planned {
+  return { fire, request: { identifier, content: { title, body, sound: 'default', data, categoryIdentifier: category }, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire, channelId } } }
 }
 
 /** The device's YYYY-MM-DD, `days` from now. */
@@ -152,9 +164,10 @@ function requestsFor(e: EventInstance, now: number, person: string | null): Plan
       fire,
       request: {
         identifier: `${PREFIX}${e.id}:${e.start}:${m}`,
-        // iOS: Snooze / Open; a leave-by breaks through Focus where the build can (Time Sensitive).
-        content: { title: e.title, body, sound: 'default', data: { route, focus, urgent: leave != null }, categoryIdentifier: IOS ? 'event' : undefined },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire, channelId: CHANNEL },
+        // Snooze / Open; on iPhone a leave-by breaks through Focus where the build can (Time
+        // Sensitive), on Android it goes on the Leave-by channel.
+        content: { title: e.title, body, sound: 'default', data: { route, focus, urgent: leave != null }, categoryIdentifier: 'event' },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire, channelId: leave != null ? LEAVE_BY : CHANNEL },
       },
     })
   }

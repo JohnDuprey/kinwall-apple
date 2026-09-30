@@ -8,9 +8,10 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONObject
 
-/** Android's KinwallNative (modules/kinwall-native/index.ts): the keys (Keychain.kt) and the
- * countdowns (Countdowns.kt). Widgets render from JavaScript on Android and there's no Watch, so
- * those calls do nothing here; there's no push, so "activityToken" never fires. */
+/** Android's KinwallNative (modules/kinwall-native/index.ts): the keys (Keychain.kt), the
+ * countdowns (Countdowns.kt) and the notification channels (Channels.kt). Widgets render from
+ * JavaScript on Android (reloadWidgets asks Android to redraw them) and there's no Watch; there's
+ * no push, so "activityToken" never fires. */
 class KinwallNativeModule : Module() {
   private val context get() = requireNotNull(appContext.reactContext)
 
@@ -23,6 +24,7 @@ class KinwallNativeModule : Module() {
     // under it. The content makes room itself: the keyboard's height less the navigation bar the
     // screens already keep clear of. The insets pass on untouched.
     OnCreate {
+      Channels.ensure(context)
       val activity = appContext.currentActivity ?: return@OnCreate
       activity.runOnUiThread {
         ViewCompat.setOnApplyWindowInsetsListener(activity.findViewById<View>(android.R.id.content)) { view, insets ->
@@ -36,7 +38,7 @@ class KinwallNativeModule : Module() {
 
     AsyncFunction("keychainGet") { service: String, _: Boolean -> Keychain.get(context, service) }
     AsyncFunction("keychainSet") { service: String, _: Boolean, value: String? -> Keychain.set(context, service, value) }
-    Function("reloadWidgets") {}
+    Function("reloadWidgets") { Widgets.reload(context) }
     Function("watchAppInstalled") { false }
     Function("updateWatch") { _: Map<String, Any?> -> }
 
@@ -46,6 +48,10 @@ class KinwallNativeModule : Module() {
     AsyncFunction("activityEnd") { kind: String? -> Countdowns.end(context, kind) }
     AsyncFunction("activityEndStale") { Countdowns.endStale(context) }
     Function("activitiesEnabled") { Countdowns.enabled(context) }
+    // Before src/reminders.ts schedules on them; and a channel's page in Android Settings (the web
+    // app's "Let medicine through Do Not Disturb", through src/WebShell.tsx).
+    AsyncFunction("ensureChannels") { Channels.ensure(context) }
+    Function("openNotificationSettings") { channel: String? -> Channels.openSettings(context, channel) }
     AsyncFunction("leaveBySchedule") { alarms: String -> Countdowns.schedule(context, alarms) }
     // Edge to edge, the navigation bar is see-through: its buttons follow the page's colors, not
     // the system's light or dark mode (expo-status-bar only does the status bar).
