@@ -8,7 +8,10 @@ set -eu
 : "${TEAM:?Set TEAM to your Apple Developer team ID (developer.apple.com → Membership)}"
 cd "$(dirname "$0")/.."
 OUT="${OUT:-/tmp/kinwall-testflight}"   # outside ~/Documents: codesign trips over Finder metadata there
-BUILD="${BUILD:-$(date +%Y%m%d%H%M)}"   # every upload needs a new build number
+VERSION=$(node -p "require('./package.json').version")
+# Same rule as .github/workflows/testflight.yml: "<major*10000 + minor*100 + patch>.<minutes since
+# 1970>", so uploads from here or from CI always go up within a version.
+BUILD="${BUILD:-$(node -p "const [a,b,c]=require('./package.json').version.split('.').map(Number); a*10000+b*100+c").$(( $(date -u +%s) / 60 ))}"
 rm -rf "$OUT" && mkdir -p "$OUT"
 # Generate ios/ from app.json, plugins/ and targets/ (CocoaPods needs a UTF-8 locale).
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
@@ -16,7 +19,7 @@ npm ci --silent
 CI=1 npx expo prebuild -p ios --clean >/dev/null
 xcodebuild archive -workspace ios/Kinwall.xcworkspace -scheme Kinwall -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$OUT/Kinwall.xcarchive" -derivedDataPath "$OUT/dd" \
-  -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" CURRENT_PROJECT_VERSION="$BUILD" | tail -3
+  -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" | tail -3
 cat > "$OUT/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

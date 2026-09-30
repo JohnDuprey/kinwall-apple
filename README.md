@@ -108,7 +108,7 @@ The script runs `expo prebuild` and installs a Release build with the JavaScript
 
 - **Free Apple ID:** the first time, trust your developer account on the device (**Settings → General → VPN & Device Management**). The build stops opening after 7 days; run the script again to renew it.
 - **Apple Watch:** the Watch app comes inside the iPhone app. For a development build the Watch has to be paired with Xcode too (it connects over the network, so a firewall blocking incoming connections stops it). Then install it from the iPhone's **Watch** app → **Available Apps**.
-- **Paid membership (not enrolled yet):** `TEAM=<team ID> scripts/testflight.sh` would upload a TestFlight build instead.
+- **Paid membership (not enrolled yet):** each release uploads to TestFlight from GitHub Actions (`testflight.yml`, once its secrets are set; docs/PUBLISHING.md), and `TEAM=<team ID> scripts/testflight.sh` does the same from a Mac.
 
 **Android:** turn on USB debugging on the phone and run `npx expo run:android --variant release`.
 

@@ -23,9 +23,16 @@ Identifiers: iOS bundle ID and Android package are both `family.kinwall.app`.
 
 **Each release**
 
-1. Build: `eas build --platform ios --profile production` (or Xcode → Product → Archive). Build
-   numbers must go up; see the release workflow's versioning rule.
-2. Upload: `eas submit --platform ios` (or Xcode Organizer → Distribute App → App Store Connect).
+1. Build and upload: each release runs `.github/workflows/testflight.yml` (from release-please; or
+   run it by hand from the Actions tab, with a tag or on a branch). It archives with automatic
+   signing through an App Store Connect API key and uploads. It's skipped until the repository has
+   the secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the `.p8` contents) and `APPLE_TEAM_ID`;
+   make the key under App Store Connect → Users and Access → Integrations with the **Admin** role,
+   so signing can create certificates and profiles. From a Mac instead: `TEAM=<team ID>
+   scripts/testflight.sh`. Build numbers are `<major*10000 + minor*100 + patch>.<minutes since
+   1970>` in both, so they always go up within a version; the unsigned GitHub builds use the first
+   part only and are never uploaded.
+2. (EAS instead: `eas build --platform ios --profile production`, then `eas submit --platform ios`.)
 3. TestFlight: the build appears after processing; test internally, then add external testers
    (external testing needs a short beta review).
 4. Submit for review in App Store Connect with:
