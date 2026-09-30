@@ -244,7 +244,8 @@ struct ShoppingButtons: View {
     var onDark = false
     var body: some View {
         HStack(spacing: 10) {
-            if let listId = context.attributes.listId, let itemId = context.s.itemId {
+            // On a combined trip the item can be on the other list: its entry carries that list's id.
+            if let itemId = context.s.itemId, let listId = context.s.queue?.first(where: { $0.id == itemId })?.listId ?? context.attributes.listId {
                 Button(intent: GotItIntent(listId: listId, itemId: itemId)) {
                     Label("Got it", systemImage: "checkmark").frame(maxWidth: .infinity)
                 }

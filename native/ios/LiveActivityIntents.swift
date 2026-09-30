@@ -29,7 +29,7 @@ struct GotItIntent: LiveActivityIntent {
         } else if (try? SharedKeychain.demoStore.load()) == nil {
             throw GotItError.signedOut
         } // the demo: its sample list just moves on
-        for activity in Activity<KinwallActivityAttributes>.activities where activity.attributes.listId == listId && activity.content.state.itemId == itemId {
+        for activity in Activity<KinwallActivityAttributes>.activities where activity.attributes.kind == "shopping" && activity.content.state.itemId == itemId { // listId may be the other list's
             var s = activity.content.state
             let rest = Array((s.queue ?? []).drop { $0.id != itemId }.dropFirst())
             s.count = max(0, s.count - 1)

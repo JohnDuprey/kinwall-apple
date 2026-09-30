@@ -36,7 +36,10 @@ public struct KinwallActivityAttributes: ActivityAttributes {
         public var id: String
         public var title: String
         public var aisle: String?
-        public init(id: String, title: String, aisle: String?) { self.id = id; self.title = title; self.aisle = aisle }
+        /// Set only when the item is on the other list of a combined store trip (Groceries and
+        /// Shopping); nil means the activity's own list, as older payloads always did.
+        public var listId: String?
+        public init(id: String, title: String, aisle: String?, listId: String? = nil) { self.id = id; self.title = title; self.aisle = aisle; self.listId = listId }
     }
 
     /// The family's colors when the app has them (its saved appearance), as #RRGGBB; nil draws Kinwall's.
