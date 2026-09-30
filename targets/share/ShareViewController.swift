@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 /// "Kinwall" in the share sheet: takes the shared link (or the first link in shared text) and saves
 /// the recipe on it to the family's Kinwall (POST api/recipes/import-url), right here in the sheet.
+/// A shared contact (a vCard) is reviewed and imported the same way (ContactImport.swift).
 /// It signs in with what the app keeps in the shared Keychain group: the OAuth tokens (refreshed and
 /// saved back when they're about to lapse; src/oauth.ts) or a paired device's key (src/sharedKey.ts).
 final class ShareViewController: UIViewController {
@@ -38,6 +39,22 @@ final class ShareViewController: UIViewController {
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
     Task { @MainActor in
+      if let vcard = await ContactImport.sharedVCard(extensionContext) {
+        label.text = "Reading contact…"
+        let result = await ContactImport.preview(vcard)
+        spinner.stopAnimating()
+        spinner.isHidden = true
+        switch result {
+        case .failure(let failure):
+          label.text = failure.message
+          done.isHidden = false
+        case .success(let rows):
+          label.isHidden = true
+          let context = extensionContext
+          embed(ContactReview(rows: rows) { context?.completeRequest(returningItems: nil) })
+        }
+        return
+      }
       let outcome: Outcome
       let link = await sharedLink()
       if let link { outcome = await Self.importRecipe(link, save: false) }
@@ -58,9 +75,13 @@ final class ShareViewController: UIViewController {
   /// What Kinwall read from the page, to check before saving it: photo, name, times, warnings,
   /// ingredients, steps, then Import.
   private func showPreview(_ reply: Reply, link: URL) {
-    let host = UIHostingController(rootView: ImportPreview(reply: reply, save: { await Self.importRecipe(link, save: true) }) { [weak self] in
+    embed(ImportPreview(reply: reply, save: { await Self.importRecipe(link, save: true) }) { [weak self] in
       self?.extensionContext?.completeRequest(returningItems: nil)
     })
+  }
+
+  private func embed(_ root: some View) {
+    let host = UIHostingController(rootView: root)
     addChild(host)
     host.view.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(host.view)
@@ -114,14 +135,7 @@ final class ShareViewController: UIViewController {
   /// Reads the recipe on the page (save: false, for the preview) or saves it: the recipe, or what went wrong.
   static func importRecipe(_ link: URL, save: Bool) async -> Outcome {
     do {
-      guard let (baseURL, key) = try await credential() else { return .message("Open Kinwall and sign in, then share again.") }
-      var req = URLRequest(url: baseURL.appending(path: "api/recipes/import-url"), timeoutInterval: 45)
-      req.httpMethod = "POST"
-      req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-      req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-      req.httpBody = try JSONSerialization.data(withJSONObject: ["url": link.absoluteString, "save": save])
-      let (data, response) = try await URLSession.shared.data(for: req)
-      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      guard let (data, status) = try await post("api/recipes/import-url", ["url": link.absoluteString, "save": save], timeout: 45) else { return .message("Open Kinwall and sign in, then share again.") }
       if status == 200, let r = try? JSONDecoder().decode(Reply.self, from: data) {
         return .saved(r)
       }
@@ -143,6 +157,18 @@ final class ShareViewController: UIViewController {
   }
 
   struct SignInNeeded: Error {}
+
+  /// POSTs JSON to the family's server, signed in: the reply and its status, or nil when signed out.
+  static func post(_ path: String, _ body: Any, timeout: TimeInterval) async throws -> (Data, Int)? {
+    guard let (baseURL, key) = try await credential() else { return nil }
+    var req = URLRequest(url: baseURL.appending(path: path), timeoutInterval: timeout)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+    req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    let (data, response) = try await URLSession.shared.data(for: req)
+    return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+  }
 
   /// The server and a key: the OAuth access token (refreshed first if it's about to lapse; refresh
   /// tokens rotate, so the new ones are saved before use), else the paired key. Nil when signed out.
