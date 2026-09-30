@@ -1,15 +1,21 @@
 package family.kinwall.nativemodule
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.AlarmManager
+import android.app.KeyguardManager
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -38,6 +44,10 @@ import kotlin.concurrent.thread
  *
  * Leave-by and prep-by times are also scheduled ahead with no push (src/leaveBy.ts decides which):
  * an exact alarm at each first warning posts the countdown even with the app closed.
+ *
+ * Cooking timers ring: the cooking payload's `alarms` (every running timer's finish) each get an
+ * exact alarm that posts "Time's up" on its own high-importance channel, with the alarm sound
+ * until Stop (or ten minutes).
  */
 object Countdowns {
   const val CHANNEL = "countdowns"
@@ -52,6 +62,10 @@ object Countdowns {
   const val ACTION_DOSE = "family.kinwall.app.DOSE"
   private const val SNOOZE = 10 * MIN
   private const val LINK = "family.kinwall.app:/open?to="
+  private const val RING_CHANNEL = "cooking_timers"
+  private const val RINGS = "rings"
+  private const val RING_TAG = "cook"
+  const val ACTION_RING_STOP = "family.kinwall.app.RING_STOP"
 
   private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -83,6 +97,7 @@ object Countdowns {
     val edit = prefs(c).edit().putString(kind, payload)
     if (colors != null) edit.putString("colors", colors)
     edit.apply()
+    if (kind == "cooking") JSONObject(json).optJSONArray("alarms")?.let { rings(c, it) }
     show(c, kind)
   }
 
@@ -93,6 +108,7 @@ object Countdowns {
       NotificationManagerCompat.from(c).cancel(id)
       cancelAlarm(c, kindUri(k))
       prefs(c).edit().remove(k).apply()
+      if (k == "cooking") stopRings(c)
     }
     if (kind == null) schedule(c, "[]")
   }
@@ -131,6 +147,84 @@ object Countdowns {
     else set(c, "leaveBy", item.toString(), null)
   }
 
+  // ---- Cooking timers that ring ----
+
+  /** The page's `alarms` ([{at, title, body}], web/src/liveActivity.ts) replace the last ones: pause,
+   * reset or cancel on the page takes a timer away, and resume sets it again with its new finish.
+   * One that already rang keeps ringing until Stop, or until cooking mode closes. */
+  private fun rings(c: Context, alarms: JSONArray) {
+    val old = JSONArray(prefs(c).getString(RINGS, "[]"))
+    for (i in 0 until old.length()) cancelAlarm(c, ringUri(old.getJSONObject(i)))
+    prefs(c).edit().putString(RINGS, alarms.toString()).apply()
+    armRings(c)
+  }
+
+  /** Sets the saved rings' alarms (again after a restart). */
+  fun armRings(c: Context) {
+    val list = JSONArray(prefs(c).getString(RINGS, "[]"))
+    val now = System.currentTimeMillis()
+    for (i in 0 until list.length()) {
+      val item = list.getJSONObject(i)
+      val at = item.optLong("at")
+      if (at > now) alarm(c, ringUri(item), at, item.toString())
+    }
+  }
+
+  private fun stopRings(c: Context) {
+    val old = JSONArray(prefs(c).getString(RINGS, "[]"))
+    for (i in 0 until old.length()) cancelAlarm(c, ringUri(old.getJSONObject(i)))
+    prefs(c).edit().remove(RINGS).apply()
+    val nm = c.getSystemService(NotificationManager::class.java) ?: return
+    for (n in nm.activeNotifications) if (n.tag == RING_TAG) nm.cancel(RING_TAG, n.id)
+  }
+
+  fun stopRing(c: Context, id: Int) = NotificationManagerCompat.from(c).cancel(RING_TAG, id)
+
+  /** Cooking mode on screen beeps itself: the app in front, the screen on and unlocked. */
+  private fun onScreen(c: Context): Boolean {
+    val me = ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }
+    return me.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
+      c.getSystemService(PowerManager::class.java)?.isInteractive == true &&
+      c.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == false
+  }
+
+  /** A timer's finish: "Time's up: Rice" with the alarm sound, over and over until Stop, a tap, a
+   * swipe, or ten minutes. Its own channel, so it can be loud while the countdowns stay quiet. */
+  @SuppressLint("MissingPermission")
+  fun ring(c: Context, item: JSONObject) {
+    if (onScreen(c)) return
+    val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    NotificationManagerCompat.from(c).createNotificationChannel(
+      NotificationChannelCompat.Builder(RING_CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH)
+        .setName("Cooking timers")
+        .setDescription("Rings when a cooking timer is done")
+        .setSound(sound, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+        .setVibrationEnabled(true)
+        .setVibrationPattern(longArrayOf(0, 600, 400, 600))
+        .build()
+    )
+    val id = ringUri(item).hashCode()
+    val stop = PendingIntent.getBroadcast(c, id, Intent(c, CountdownReceiver::class.java).setAction(ACTION_RING_STOP).putExtra("id", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val open = PendingIntent.getActivity(c, id, openIntent(c, null), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun base(title: String) = NotificationCompat.Builder(c, RING_CHANNEL)
+      .setSmallIcon(R.drawable.kinwall_countdown)
+      .setContentTitle(title)
+      .setColor(accent(c))
+      .setCategory(NotificationCompat.CATEGORY_ALARM)
+      .setPriority(NotificationCompat.PRIORITY_MAX)
+    val n = base(item.optString("title").ifEmpty { "Time's up" })
+      .setContentText(item.optString("body"))
+      .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+      .setPublicVersion(base("Timer done").build())
+      .setContentIntent(open)
+      .setAutoCancel(true)
+      .setTimeoutAfter(10 * MIN)
+      .addAction(0, "Stop", stop)
+      .build()
+    n.flags = n.flags or Notification.FLAG_INSISTENT
+    try { NotificationManagerCompat.from(c).notify(RING_TAG, id, n) } catch (e: SecurityException) {}
+  }
+
   // ---- Drawing ----
 
   private class Look(
@@ -144,12 +238,13 @@ object Countdowns {
   @SuppressLint("MissingPermission") // without POST_NOTIFICATIONS, notify() quietly does nothing
   fun show(c: Context, kind: String, alert: Boolean = false) {
     val json = prefs(c).getString(kind, null) ?: return
+    val loud = alert && !(kind == "cooking" && json.contains("\"alarms\"")) // a timer's own ring (ring()) sounds instead
     val now = System.currentTimeMillis()
     val look = try { look(c, kind, JSONObject(json), now) } catch (e: Exception) { null } // a payload we can't read shows nothing
     if (look == null) { end(c, kind); return }
     look.next?.let { alarm(c, kindUri(kind), it, null) } ?: cancelAlarm(c, kindUri(kind))
     channel(c)
-    val accent = colors(c)?.optString("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.parseColor("#A5613F")
+    val accent = accent(c)
     val open = PendingIntent.getActivity(c, IDS.getValue(kind), openIntent(c, look.link), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     fun base(title: String) = NotificationCompat.Builder(c, CHANNEL)
@@ -166,7 +261,7 @@ object Countdowns {
     val public = base(look.publicTitle).build()
     val b = base(look.title)
       .setContentText(look.text)
-      .setOnlyAlertOnce(!alert)
+      .setOnlyAlertOnce(!loud)
       .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
       .setPublicVersion(public)
       .setContentIntent(open)
@@ -264,6 +359,8 @@ object Countdowns {
     else -> null
   }
 
+  private fun accent(c: Context) = colors(c)?.optString("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.parseColor("#A5613F")
+
   private fun colors(c: Context) = prefs(c).getString("colors", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
 
   private fun openIntent(c: Context, to: String?): Intent =
@@ -280,6 +377,7 @@ object Countdowns {
   // ---- Alarms ----
 
   private fun kindUri(kind: String) = Uri.parse("kinwall-countdown:$kind")
+  private fun ringUri(item: JSONObject) = Uri.parse("kinwall-ring:" + item.optLong("at") + "/" + Uri.encode(item.optString("title")))
   private fun leaveByUri(item: JSONObject) = Uri.parse("kinwall-leaveby:" + Uri.encode(item.getString("activity")))
 
   private fun pending(c: Context, uri: Uri, item: String?, flags: Int) = PendingIntent.getBroadcast(
@@ -357,7 +455,7 @@ object Countdowns {
   }
 }
 
-/** Alarms (a countdown's next moment, a scheduled leave-by warning) and "Got it". */
+/** Alarms (a countdown's next moment, a scheduled leave-by warning, a cooking timer's finish), "Got it" and Stop. */
 class CountdownReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
@@ -366,6 +464,7 @@ class CountdownReceiver : BroadcastReceiver() {
         val done = goAsync()
         thread { try { Countdowns.dose(context, action) } finally { done.finish() } }
       }
+      Countdowns.ACTION_RING_STOP -> Countdowns.stopRing(context, intent.getIntExtra("id", 0))
       Countdowns.ACTION_GOT_IT -> {
         val done = goAsync() // a network call: off the main thread, within the receiver's time
         thread { try { Countdowns.gotIt(context) } finally { done.finish() } }
@@ -373,6 +472,7 @@ class CountdownReceiver : BroadcastReceiver() {
       Countdowns.ACTION_ALARM -> {
         val uri = intent.data ?: return
         if (uri.scheme == "kinwall-leaveby") intent.getStringExtra("item")?.let { Countdowns.warn(context, JSONObject(it)) }
+        else if (uri.scheme == "kinwall-ring") intent.getStringExtra("item")?.let { Countdowns.ring(context, JSONObject(it)) }
         else uri.schemeSpecificPart?.let { Countdowns.show(context, it, alert = true) }
       }
     }
@@ -383,6 +483,7 @@ class CountdownReceiver : BroadcastReceiver() {
 class CountdownBootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     Countdowns.arm(context)
+    Countdowns.armRings(context)
     Countdowns.endStale(context)
   }
 }
