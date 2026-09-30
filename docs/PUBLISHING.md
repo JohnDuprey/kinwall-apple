@@ -28,7 +28,9 @@ Identifiers: iOS bundle ID and Android package are both `family.kinwall.app`.
    signing through an App Store Connect API key and uploads. It's skipped until the repository has
    the secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the `.p8` contents) and `APPLE_TEAM_ID`;
    make the key under App Store Connect → Users and Access → Integrations with the **Admin** role,
-   so signing can create certificates and profiles. From a Mac instead: `TEAM=<team ID>
+   so signing can create certificates and profiles. The workflow writes the key only after the
+   npm and CocoaPods installs (npm runs no install scripts) and hands it only to the archive and
+   upload steps; its actions are pinned to commit SHAs. From a Mac instead: `TEAM=<team ID>
    scripts/testflight.sh`. Build numbers are `<major*10000 + minor*100 + patch>.<minutes since
    1970>` in both, so they always go up within a version; the unsigned GitHub builds use the first
    part only and are never uploaded.
