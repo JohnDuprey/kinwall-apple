@@ -174,5 +174,18 @@ const withShareIntent = (config) => {
   })
 }
 
+// Exact alarms for the leave-by, medicine and cooking-timer alarms (Countdowns.kt): USE_EXACT_ALARM
+// is granted at install on Android 13 and later (Play allows it for calendar and reminder apps, with
+// a declaration: docs/PUBLISHING.md); SCHEDULE_EXACT_ALARM covers Android 12 and 12L, where it's
+// granted by default too, and is capped there so Android 13+ never shows its settings toggle.
+const withExactAlarms = (config) =>
+  withAndroidManifest(config, (c) => {
+    const perms = (c.modResults.manifest['uses-permission'] ??= [])
+    const perm = (name) => perms.find((p) => p.$['android:name'] === name) ?? perms[perms.push({ $: { 'android:name': name } }) - 1]
+    perm('android.permission.USE_EXACT_ALARM')
+    Object.assign(perm('android.permission.SCHEDULE_EXACT_ALARM').$, { 'android:maxSdkVersion': '32', 'tools:replace': 'android:maxSdkVersion' })
+    return c
+  })
+
 // Mods run newest-first, so register ours before apple-targets' and it runs once the targets exist.
-module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withAppHooks(withSceneLifecycle(withSpacesInPath(withShareIntent(config)))))), {})
+module.exports = (config) => withTargets(withKinwallKit(withLocalOnly(withAppHooks(withSceneLifecycle(withSpacesInPath(withExactAlarms(withShareIntent(config))))))), {})
