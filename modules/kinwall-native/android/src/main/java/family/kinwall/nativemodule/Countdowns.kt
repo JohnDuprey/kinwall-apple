@@ -437,7 +437,9 @@ object Countdowns {
     val p = JSONObject(prefs(c).getString("shopping", null) ?: return)
     val next = p.optJSONObject("next") ?: return
     val id = next.getString("id")
-    if (!send(c, "PATCH", "api/lists/${Uri.encode(p.getString("listId"))}/items/${Uri.encode(id)}", JSONObject().put("done", true))) return
+    // A combined trip carries the other list's items with their own listId (web/src/liveActivity.ts).
+    val listId = next.optString("listId").ifEmpty { p.getString("listId") }
+    if (!send(c, "PATCH", "api/lists/${Uri.encode(listId)}/items/${Uri.encode(id)}", JSONObject().put("done", true))) return
     val upcoming = p.optJSONArray("upcoming") ?: JSONArray()
     val rest = JSONArray()
     var after = false
