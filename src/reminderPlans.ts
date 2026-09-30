@@ -39,7 +39,7 @@ export function doseReminders(h: MedicationDay, now: number): DoseReminder[] {
 }
 
 /** GET /api/chores/day. */
-export type ChoreDay = { id: string; title: string; memberId: string | null; completed: boolean; checklist?: { total: number; done: number } | null }
+export type ChoreDay = { id: string; title: string; emoji?: string | null; memberId: string | null; completed: boolean; checklist?: { total: number; done: number } | null }
 export type ChoreNudge = { title: string; body: string; choreId: string | null }
 
 /** The server's chore nudge ("2 chores left today"), for the person's own chores that day. Done

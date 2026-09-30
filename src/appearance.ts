@@ -37,3 +37,16 @@ export function activityColors(frame: (Surface & { dark: boolean }) | null): { b
   if (!frame) return null
   return frame.dark ? { bg: frame.bg, fg: '#F3EAE0', accent: '#FF9E7A' } : { bg: frame.bg, fg: '#3A2E27', accent: '#A5613F' }
 }
+
+/** The Android widgets' colors (src/widgets.tsx): the family's surfaces with Kinwall's text and
+ * accent, light or dark as the frame would be; Kinwall's own (src/theme.ts) before the page has
+ * sent any. `systemDark`: the representation Android asks for (its dark theme on or off). */
+type Hex = `#${string}`
+export type WidgetPalette = { bg: Hex; card: Hex; fg: Hex; dim: Hex; accent: Hex }
+const LIGHT: WidgetPalette = { bg: '#FFFBF5', card: '#FFFFFF', fg: '#3A2E27', dim: '#6B5D52', accent: '#A5613F' }
+const DARK: WidgetPalette = { bg: '#1C1712', card: '#2A221B', fg: '#F3EAE0', dim: '#C4B5A7', accent: '#FF9E7A' }
+export function widgetPalette(a: Appearance | null, systemDark: boolean): WidgetPalette {
+  const f = frameColors(a, systemDark)
+  const base = (f ? f.dark : systemDark) ? DARK : LIGHT
+  return f ? { ...base, bg: f.bg as Hex, card: f.card as Hex } : base // parseAppearance only passes #rrggbb
+}

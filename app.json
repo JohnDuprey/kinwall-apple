@@ -154,13 +154,52 @@
           "widgets": [
             {
               "name": "Kinwall",
-              "label": "Kinwall",
+              "label": "Now & Next",
               "description": "What's on now, what's next, and chores left.",
               "minWidth": "180dp",
               "minHeight": "110dp",
               "targetCellWidth": 3,
               "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widgets/kinwall.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Chores",
+              "label": "Chores",
+              "description": "Today's chores, one person's or everyone's. Tap one to tick it off.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widgets/chores.png",
+              "widgetFeatures": "reconfigurable|configuration_optional",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "List",
+              "label": "List",
+              "description": "Groceries or another list. Tap an item to tick it off; Add opens the list.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widgets/list.png",
+              "widgetFeatures": "reconfigurable|configuration_optional",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "TakeNow",
+              "label": "Take now",
+              "description": "How many of your medicines are due now. Never their names.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widgets/takenow.png",
               "updatePeriodMillis": 1800000
             }
           ]

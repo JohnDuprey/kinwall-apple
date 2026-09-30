@@ -2,6 +2,7 @@
 // Swift side's client). One fetch per call; callers own caching.
 
 import type { ChoreDay, MedicationDay } from './reminderPlans'
+import type { FamilyList, ListDetail } from './widgetData'
 
 export type Connection = { baseURL: string; key: string }
 
@@ -32,7 +33,8 @@ export async function api<T>(baseURL: string, key: string | null, method: string
     const e = (await res.json().catch(() => null)) as { error?: string } | null
     throw new ApiError(res.status, e?.error ?? `${res.status} ${res.statusText}`)
   }
-  return (await res.json()) as T
+  const text = await res.text() // a write may answer with no body
+  return (text ? JSON.parse(text) : null) as T
 }
 
 /** Does this address answer like a Kinwall server? */
@@ -53,6 +55,16 @@ export const medicationDay = (c: Connection, memberId: string) =>
   api<MedicationDay>(c.baseURL, c.key, 'GET', `api/members/${encodeURIComponent(memberId)}/medications?days=1`)
 export const choresOn = (c: Connection, date: string) => api<ChoreDay[]>(c.baseURL, c.key, 'GET', `api/chores/day?date=${date}`)
 export const board = (c: Connection, days = 1) => api<Board>(c.baseURL, c.key, 'GET', `api/board?days=${days}`)
+export const members = (c: Connection) => api<{ id: string; name: string; avatar?: string | null }[]>(c.baseURL, c.key, 'GET', 'api/members')
+/** memberId: who gets the points for an Anyone chore; the key's own person otherwise. */
+export const completeChore = (c: Connection, id: string, date: string, memberId: string | null) =>
+  api<unknown>(c.baseURL, c.key, 'POST', `api/chores/${encodeURIComponent(id)}/complete`, { date, memberId })
+export const lists = (c: Connection) => api<FamilyList[]>(c.baseURL, c.key, 'GET', 'api/lists')
+export const list = (c: Connection, id: string) => api<ListDetail>(c.baseURL, c.key, 'GET', `api/lists/${encodeURIComponent(id)}`)
+export const setItemDone = (c: Connection, listId: string, itemId: string, done: boolean) =>
+  api<unknown>(c.baseURL, c.key, 'PATCH', `api/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`, { done })
+/** The doses due now (names only where the server shares them; the widget shows only the count). */
+export const dueDoses = (c: Connection) => api<{ doses: unknown[] }>(c.baseURL, c.key, 'GET', 'api/medications/due')
 /** An everyday-access key for widgets or the watch; the plaintext comes back once. */
 export const createDeviceKey = (baseURL: string, key: string, name: string) =>
   api<{ id: string; key: string }>(baseURL, key, 'POST', 'api/device-keys', { name })
