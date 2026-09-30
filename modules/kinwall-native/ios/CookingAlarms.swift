@@ -22,14 +22,22 @@ enum CookingAlarms {
     static let prefix = "cook:"
     @MainActor private static var last: Task<Void, Never>?
 
-    /// The page's cooking payload (a page from before `alarms` rings nothing).
-    @MainActor static func set(json: String) {
+    /// The page's cooking payload (a page from before `alarms` rings nothing). `accent`: the family's
+    /// accent color (#RRGGBB) for the alarm, or nil for Kinwall's.
+    @MainActor static func set(json: String, accent: String? = nil) {
         let alarms = (try? JSONDecoder().decode(Payload.self, from: Data(json.utf8)))?.alarms ?? []
-        run { await apply(alarms) }
+        let tint = tint(accent)
+        run { await apply(alarms, tint: tint) }
     }
 
     /// Cooking mode closed, or sign-out: nothing rings, and one that's ringing stops.
-    @MainActor static func clear() { run { await apply(nil) } }
+    @MainActor static func clear() { run { await apply(nil, tint: tint(nil)) } }
+
+    /// The family's accent, else Kinwall's own (web/src default scheme).
+    private static func tint(_ hex: String?) -> Color {
+        guard let hex, hex.count == 7, hex.first == "#", let v = Int(hex.dropFirst(), radix: 16) else { return Color(red: 0.647, green: 0.38, blue: 0.247) }
+        return Color(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
 
     /// One at a time, in order: payloads come quickly and each diff reads what the last one set.
     @MainActor private static func run(_ work: @escaping () async -> Void) {
@@ -37,12 +45,12 @@ enum CookingAlarms {
         last = Task { await before?.value; await work() }
     }
 
-    private static func apply(_ alarms: [Alarm]?) async {
+    private static func apply(_ alarms: [Alarm]?, tint: Color) async {
         let now = Date().timeIntervalSince1970
         var wanted: [UUID: Alarm] = [:]
         for a in alarms ?? [] where a.at / 1000 > now { wanted[id(a)] = a }
         var left = wanted
-        if #available(iOS 26, *) { left = await ring(wanted, clearing: alarms == nil) }
+        if #available(iOS 26, *) { left = await ring(wanted, clearing: alarms == nil, tint: tint) }
         await notify(left, clearing: alarms == nil)
     }
 
@@ -60,7 +68,7 @@ enum CookingAlarms {
     /// Sets the wanted alarms and takes away the rest; returns the ones AlarmKit didn't take (all of
     /// them when it isn't allowed). Asks the first time a timer runs.
     @available(iOS 26, *)
-    private static func ring(_ wanted: [UUID: Alarm], clearing: Bool) async -> [UUID: Alarm] {
+    private static func ring(_ wanted: [UUID: Alarm], clearing: Bool, tint: Color) async -> [UUID: Alarm] {
         let manager = AlarmManager.shared
         var state = manager.authorizationState
         if state == .notDetermined && !wanted.isEmpty { state = (try? await manager.requestAuthorization()) ?? .denied }
@@ -78,7 +86,7 @@ enum CookingAlarms {
         for (id, a) in wanted where !have.contains(id) {
             let stop = AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill")
             let alert = AlarmPresentation.Alert(title: LocalizedStringResource(String.LocalizationValue(a.title)), stopButton: stop)
-            let attributes = AlarmAttributes<Meta>(presentation: AlarmPresentation(alert: alert), tintColor: Color(red: 0.647, green: 0.38, blue: 0.247)) // Kinwall's accent
+            let attributes = AlarmAttributes<Meta>(presentation: AlarmPresentation(alert: alert), tintColor: tint)
             do { _ = try await manager.schedule(id: id, configuration: .alarm(schedule: .fixed(Date(timeIntervalSince1970: a.at / 1000)), attributes: attributes)) }
             catch { left[id] = a } // e.g. too many alarms: a notification instead
         }

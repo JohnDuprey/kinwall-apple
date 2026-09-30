@@ -24,7 +24,7 @@ public class KinwallNativeModule: Module {
         /// cooking one also sets its timers' alarms (CookingAlarms.swift).
         /// `colors` the family's (#RRGGBB bg, fg, accent), or nil for Kinwall's.
         AsyncFunction("activitySet") { (kind: String, payload: String, colors: [String: String]?) in
-            if kind == "cooking" { await CookingAlarms.set(json: payload) } // rings even with Live Activities off
+            if kind == "cooking" { await CookingAlarms.set(json: payload, accent: colors?["accent"]) } // rings even with Live Activities off, in the family's accent
             let theme = colors.flatMap { c in c["bg"].flatMap { bg in c["fg"].flatMap { fg in c["accent"].map { KinwallActivityAttributes.Colors(bg: bg, fg: fg, accent: $0) } } } }
             try await LiveActivities.set(kind: kind, json: payload, colors: theme) { [weak self] token in self?.sendEvent("activityToken", token) }
         }
