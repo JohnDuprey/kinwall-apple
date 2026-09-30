@@ -1,4 +1,5 @@
 import AlarmKit
+import AppIntents
 import CryptoKit
 import Foundation
 import SwiftUI
@@ -16,7 +17,11 @@ import UserNotifications
 /// AlarmKit countdown: the cooking Live Activity already counts down on the Lock Screen, so the
 /// system shows only the alert, with Stop, and has no Pause that could fall out of step with the page.
 /// Otherwise (iOS 17 to 25, or AlarmKit not allowed): a local notification at each finish.
-enum CookingAlarms {
+public enum CookingAlarms {
+    /// The intent Stop runs, from the app target (native/ios/LiveActivityIntents.swift
+    /// StopCookingTimerIntent, set at launch by AppHooks): App Intents have to live in the app itself.
+    /// It ends the timer's Live Activity. `at`: the timer's finish, ms since 1970.
+    nonisolated(unsafe) public static var stopIntent: ((Double) -> any LiveActivityIntent)?
     private struct Alarm: Decodable { let at: Double; let title: String; let body: String }
     private struct Payload: Decodable { let alarms: [Alarm]? }
     static let prefix = "cook:"
@@ -87,7 +92,7 @@ enum CookingAlarms {
             let stop = AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill")
             let alert = AlarmPresentation.Alert(title: LocalizedStringResource(String.LocalizationValue(a.title)), stopButton: stop)
             let attributes = AlarmAttributes<Meta>(presentation: AlarmPresentation(alert: alert), tintColor: tint)
-            do { _ = try await manager.schedule(id: id, configuration: .alarm(schedule: .fixed(Date(timeIntervalSince1970: a.at / 1000)), attributes: attributes)) }
+            do { _ = try await manager.schedule(id: id, configuration: .alarm(schedule: .fixed(Date(timeIntervalSince1970: a.at / 1000)), attributes: attributes, stopIntent: stopIntent?(a.at))) }
             catch { left[id] = a } // e.g. too many alarms: a notification instead
         }
         return left

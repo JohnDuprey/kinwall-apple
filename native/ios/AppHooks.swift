@@ -10,6 +10,7 @@ enum AppHooks {
     /// for its phrases; again whenever the app comes back, since they change.
     static func launched() {
         NotificationActions.start() // the reminders' Snooze, Taken and Done
+        CookingAlarms.stopIntent = { StopCookingTimerIntent(at: $0) } // a cooking alarm's Stop ends its Live Activity
         KinwallShortcuts.updateAppShortcutParameters()
         NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
             KinwallShortcuts.updateAppShortcutParameters()

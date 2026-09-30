@@ -75,3 +75,21 @@ struct MarkDoseActivityIntent: LiveActivityIntent {
         return .result()
     }
 }
+
+#if canImport(KinwallNative)
+// Stop on a cooking timer's alarm (iOS 26 AlarmKit, modules/kinwall-native CookingAlarms.swift):
+// iOS runs it in the app, even while it's closed, so the timer's Live Activity goes with the alarm
+// instead of waiting for the page. App only: AlarmKit runs a stop intent in the app's process.
+struct StopCookingTimerIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Stop a cooking timer"
+    static let isDiscoverable = false
+    @Parameter(title: "Finish") var at: Double
+    init() {}
+    init(at: Double) { self.at = at }
+
+    func perform() async throws -> some IntentResult {
+        await LiveActivities.timerStopped(at: at)
+        return .result()
+    }
+}
+#endif
