@@ -19,8 +19,13 @@ const CAP = 60
 const HORIZON = 48 * 3600 * 1000
 export const CHANNEL = 'reminders'
 
+// iOS: a cooking timer's notification (modules/kinwall-native/ios/CookingAlarms.swift, id "cook:…")
+// stays quiet while the app is open, since cooking mode beeps itself.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+  handleNotification: async (n) => {
+    const show = !n.request.identifier.startsWith('cook:')
+    return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false }
+  },
 })
 
 /** Asks once; later calls return the saved answer without a prompt. */

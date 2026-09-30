@@ -19,7 +19,8 @@
           "NSAllowsLocalNetworking": true,
           "NSAllowsArbitraryLoadsInWebContent": true
         },
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "NSAlarmKitUsageDescription": "Kinwall rings your cooking timers when they're done, even on silent."
       },
       "entitlements": {
         "keychain-access-groups": [

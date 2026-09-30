@@ -20,13 +20,16 @@ public class KinwallNativeModule: Module {
             self.watch.start()
             LiveActivities.watchPush { [weak self] token in self?.sendEvent("activityToken", token) }
         }
-        /// Live Activities (LiveActivities.swift): `payload` is the web app's JSON for that kind;
+        /// Live Activities (LiveActivities.swift): `payload` is the web app's JSON for that kind; a
+        /// cooking one also sets its timers' alarms (CookingAlarms.swift).
         /// `colors` the family's (#RRGGBB bg, fg, accent), or nil for Kinwall's.
         AsyncFunction("activitySet") { (kind: String, payload: String, colors: [String: String]?) in
+            if kind == "cooking" { await CookingAlarms.set(json: payload) } // rings even with Live Activities off
             let theme = colors.flatMap { c in c["bg"].flatMap { bg in c["fg"].flatMap { fg in c["accent"].map { KinwallActivityAttributes.Colors(bg: bg, fg: fg, accent: $0) } } } }
             try await LiveActivities.set(kind: kind, json: payload, colors: theme) { [weak self] token in self?.sendEvent("activityToken", token) }
         }
         AsyncFunction("activityEnd") { (kind: String?) in
+            if kind == nil || kind == "cooking" { await CookingAlarms.clear() }
             if let kind { await LiveActivities.end(kind: kind) } else { await LiveActivities.endAll() }
         }
         AsyncFunction("activityEndStale") { await LiveActivities.endStale() }
