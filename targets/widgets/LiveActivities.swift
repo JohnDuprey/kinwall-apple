@@ -11,9 +11,20 @@ import WidgetKit
 // "Done" or "Leave now" without an update.
 
 struct KinwallLiveActivity: Widget {
+    /// iOS 18 and later add a small layout (SmallActivity) for the Apple Watch Smart Stack (iOS 18)
+    /// and the CarPlay Dashboard (iOS 26), which otherwise get a generic one.
     var body: some WidgetConfiguration {
+        if #available(iOS 18.0, *) {
+            return Self.configuration { FamilyActivity(context: $0) }.supplementalActivityFamilies([.small])
+        } else {
+            return Self.configuration { LockScreenActivity(context: $0) }
+        }
+    }
+
+    /// The Lock Screen view is the parameter: from iOS 18 it's one that also draws the small family.
+    static func configuration(_ lockScreen: @escaping (ActivityViewContext<KinwallActivityAttributes>) -> some View) -> some WidgetConfiguration {
         ActivityConfiguration(for: KinwallActivityAttributes.self) { context in
-            LockScreenActivity(context: context)
+            lockScreen(context)
                 .activityBackgroundTint(context.theme.bg)
                 .activitySystemActionForegroundColor(context.theme.fg)
                 .widgetURL(context.attributes.link)
@@ -50,6 +61,35 @@ struct KinwallLiveActivity: Widget {
             .widgetURL(context.attributes.link)
             .keylineTint(context.theme.accentOnDark)
         }
+    }
+}
+
+@available(iOS 18.0, *)
+struct FamilyActivity: View {
+    let context: ActivityViewContext<KinwallActivityAttributes>
+    @Environment(\.activityFamily) private var family
+    var body: some View {
+        if family == .small { SmallActivity(context: context) } else { LockScreenActivity(context: context) }
+    }
+}
+
+/// Watch and CarPlay: the icon and the countdown (or count), and the headline. No buttons: the
+/// Watch opens the full one on a tap, and CarPlay isn't for tapping. A medicine stays the web app's
+/// headline ("Time for Maya's medicine"), never its name.
+struct SmallActivity: View {
+    let context: ActivityViewContext<KinwallActivityAttributes>
+    var body: some View {
+        let theme = context.theme
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(context.attributes.icon)
+                Spacer(minLength: 4)
+                Trailing(context: context).font(.headline).foregroundStyle(theme.accent).lineLimit(1)
+            }
+            Text(context.headline).font(.subheadline.weight(.semibold)).foregroundStyle(context.due ? theme.accent : theme.fg).lineLimit(2)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
