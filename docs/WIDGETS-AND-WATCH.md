@@ -225,7 +225,7 @@ The same categories as iPhone (`src/reminders.ts`), now on both platforms, with 
 
 ### Widgets
 
-Four, rendered from JavaScript (`src/widgets.tsx`, `react-native-android-widget`), each with a picker preview (`assets/widgets/`) and description:
+Four, rendered from JavaScript (`src/widgets.tsx`, [`react-native-android-widget`](https://github.com/sAleksovski/react-native-android-widget) by Stefan Aleksovski), each with a picker preview (`assets/widgets/`) and description:
 
 | Widget | Size | What it does |
 |---|---|---|

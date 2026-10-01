@@ -68,7 +68,7 @@ Passkeys are tied to a website's domain. Inside an app's web view they only work
 - [x] Build every target for the Simulator
 
 ### M1: The iPhone and iPad app (web UI in a native frame)
-- A web view frame (`react-native-webview`), full screen, loading the household's Kinwall URL. The first run asks for the address: hosted `*.kinwall.family` or a self-hosted URL.
+- A web view frame ([`react-native-webview`](https://github.com/react-native-webview/react-native-webview)), full screen, loading the household's Kinwall URL. The first run asks for the address: hosted `*.kinwall.family` or a self-hosted URL.
 - Pairing happens in the web app's own pairing screen. Once paired, the frame reads the key and saves it to the Keychain for the native parts.
 - The status bar and background follow the page's `theme-color`, and the safe areas match the installed web app.
 - **No flash at launch.** The page reports its look (mode, dark or light, and the background and card colors for both), and the app saves it (`src/appearance.ts`). The next launch keeps the launch screen up until the saved session is known and the page has loaded, paints the frame in the saved colors (following the system in auto), and puts them on the page before its first frame. OAuth keys that lapsed while the app was closed are refreshed before the page opens, and a key the page rejects shows a blank screen while the app takes over, never the pairing screen. Sign-out goes back to the app's own colors; the demo's are never saved. The launch screen itself is a fixed image Apple caches, so it can only follow the system's light or dark mode in Kinwall's default colors.
@@ -105,7 +105,7 @@ The feature menu for M3 to M5 is in [WIDGETS-AND-WATCH.md](WIDGETS-AND-WATCH.md)
 
 ### M7: Android (in progress)
 - [x] The shared Expo shell: address screen, OAuth or pairing, web view, deep links, reminders on their own notification channel, the back button through web history
-- [x] A home-screen widget (now and next, chores left) rendered from JavaScript with `react-native-android-widget`
+- [x] A home-screen widget (now and next, chores left) rendered from JavaScript with [`react-native-android-widget`](https://github.com/sAleksovski/react-native-android-widget)
 - [x] Build and run on an emulator (Pixel, Android 16): the countdowns below. A phone is still to try
 - [x] Parity with the iPhone app's own touches (2026-09-29): **Try the demo** (sample reminders, and the widget shows a sample family while the demo is open), the saved family colors with no flash (the launch screen in Kinwall's light or dark color, the frame and page in the family's; the navigation bar's buttons now follow the page too), the keyboard (the first screen keeps **Try the demo** above it; in the web view the content makes room for it, since edge to edge on Android 15 and later the window no longer shrinks), the key refresh before the page opens, keep-awake while shopping, recipe links from the share sheet, `family.kinwall.app:/open` links, the back button through the web history, and safe areas edge to edge. The Settings line about countdowns needs the web change under [Android countdowns](#android-countdowns-built-2026-09-29)
 - [x] The Live Activities as ongoing notifications, and leave-by countdowns scheduled with no push: see [Android countdowns](#android-countdowns-built-2026-09-29)

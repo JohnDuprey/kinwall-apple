@@ -2,7 +2,7 @@
 
 iPhone, iPad, Apple Watch and Android apps for [Kinwall](https://github.com/JohnDuprey/kinwall), the family wall calendar. Not in the app stores yet: build it yourself and install it on your own devices (see below). TestFlight comes with a paid Apple Developer membership, which the project doesn't have yet. [docs/PLAN.md](docs/PLAN.md) has the plan and the milestones.
 
-The phone and tablet app is one [Expo](https://expo.dev) (React Native) app for iOS and Android: the household's own Kinwall web app, full screen in a native frame, plus what a web page can't do (reminders as local notifications, home-screen widgets, the Watch app, Siri). The iOS widgets, the Watch app, its complications and the Siri intents stay native Swift on top of `KinwallKit`.
+The phone and tablet app is one [Expo](https://expo.dev) ([React Native](https://reactnative.dev)) app for iOS and Android: the household's own Kinwall web app, full screen in a native frame, plus what a web page can't do (reminders as local notifications, home-screen widgets, the Watch app, Siri). The iOS widgets, the Watch app, its complications and the Siri intents stay native Swift on top of `KinwallKit`.
 
 The first screen asks for the family's Kinwall address, or **Try the demo** opens the demo family (demo.kinwall.family) with no sign-in. Nothing is saved there, and **Leave demo** in its top bar goes back to the first screen. To try web changes that aren't live yet, a debug build can open a local copy instead: serve the kinwall repo's `npm run build:demo` output and start Metro with `EXPO_PUBLIC_DEMO_URL=http://localhost:4173 npx expo start` (release builds ignore it). The demo shows the Live Activities too: Sam's next leave-by, a cooking timer and a shopping trip.
 
@@ -135,3 +135,5 @@ npx eas-cli build -p ios --profile production
 ## License
 
 [AGPL-3.0](LICENSE), like Kinwall itself. Kinwall is built by John Duprey with Claude Code, with UI/UX design decisions by Ashley Duprey.
+
+Built on open source: [Expo](https://github.com/expo/expo) and [React Native](https://github.com/facebook/react-native), [react-native-webview](https://github.com/react-native-webview/react-native-webview), [react-native-android-widget](https://github.com/sAleksovski/react-native-android-widget) by Stefan Aleksovski and [`@bacons/apple-targets`](https://github.com/EvanBacon/expo-apple-targets) by Evan Bacon (all MIT). Thank you. The web app inside has its own [credits](https://github.com/JohnDuprey/kinwall/blob/main/docs/contributing/credits.md).
