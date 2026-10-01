@@ -17,31 +17,71 @@ enum ContactImport {
     let duplicateIds: [String]
     var decision: Decision
     var name: String { contact["name"] as? String ?? "Contact" }
-    var detail: String {
-      let first = { (key: String) in ((contact[key] as? [[String: Any]])?.first?["value"] as? String) }
-      return [first("phones"), first("emails"), contact["organization"] as? String].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+    var initials: String { name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased() }
+    /// Nickname, job title and company (when it isn't the name), under the name.
+    var subtitle: String {
+      let org = contact["organization"] as? String
+      return [(contact["nickname"] as? String).map { "“\($0)”" }, contact["title"] as? String, org == name ? nil : org]
+        .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
+    /// What the card brought in, grouped like the web app's review: phones, emails, addresses and
+    /// websites, then dates, tags and notes. Each line is (label, value); the label may be empty.
+    var groups: [(title: String, lines: [(String, String)])] {
+      let list = { (key: String) in contact[key] as? [[String: Any]] ?? [] }
+      let values = { (key: String) in list(key).compactMap { d in (d["value"] as? String).map { (ContactImport.label(d["label"]), $0) } } }
+      // Emails and links wrap after their dots and @ instead of hyphenating ("exam-ple.org").
+      let breakable = { (lines: [(String, String)]) in lines.map { ($0.0, $0.1.replacingOccurrences(of: ".", with: ".\u{200B}").replacingOccurrences(of: "@", with: "@\u{200B}")) } }
+      let addresses = list("addresses").map { a in
+        let s = { (k: String) in a[k] as? String ?? "" }
+        let town = [[s("city"), s("region")].filter { !$0.isEmpty }.joined(separator: ", "), s("postalCode")].filter { !$0.isEmpty }.joined(separator: " ")
+        let line = [s("street"), town, s("country")].filter { !$0.isEmpty }.joined(separator: "\n")
+        return (ContactImport.label(a["label"]), line)
+      }
+      let dates = list("dates").compactMap { d in (d["date"] as? String).map { (ContactImport.label(d["label"]), ContactImport.date($0)) } }
+      let tags = (contact["tags"] as? [String] ?? []).joined(separator: ", ")
+      let notes = contact["notes"] as? String ?? ""
+      return [("Phone", values("phones")), ("Email", breakable(values("emails"))), ("Address", addresses), ("Websites", breakable(values("websites"))), ("Dates", dates),
+              ("Tags", tags.isEmpty ? [] : [("", tags)]), ("Notes", notes.isEmpty ? [] : [("", notes)])].filter { !$0.lines.isEmpty }
+    }
+  }
+
+  /// "birthday" → "Birthday"; the server already turns vCard types into words ("Mobile", "Work fax").
+  static func label(_ any: Any?) -> String {
+    let l = (any as? String ?? "").trimmingCharacters(in: .whitespaces)
+    return l.prefix(1).uppercased() + l.dropFirst()
+  }
+
+  /// "1952-03-14" → "March 14, 1952"; "--11-02" (no year) → "November 2".
+  static func date(_ s: String) -> String {
+    let p = s.split(separator: "-", omittingEmptySubsequences: true).compactMap { Int($0) }
+    let noYear = s.hasPrefix("--")
+    guard p.count == (noYear ? 2 : 3) else { return s }
+    var c = DateComponents(); c.year = noYear ? 2000 : p[0]; c.month = p[p.count - 2]; c.day = p[p.count - 1]
+    guard let d = Calendar(identifier: .gregorian).date(from: c) else { return s }
+    let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate(noYear ? "MMMMd" : "yMMMMd")
+    return f.string(from: d)
   }
 
   /// The web app's choices: a new contact is added or skipped; a possible duplicate is skipped
   /// (the default), merged into the saved one, or kept as a second contact.
   enum Decision: String, CaseIterable { case add, skip, merge, keep
-    var label: String { switch self { case .add: "Add"; case .skip: "Skip"; case .merge: "Merge"; case .keep: "Keep both" } }
+    var label: String { switch self { case .add: "Add this contact"; case .skip: "Skip it"; case .merge: "Update the saved contact"; case .keep: "Add as a separate contact" } }
   }
 
-  /// The shared vCards' text, photos left out, or nil when nothing shared is a vCard.
+  /// The shared vCards' text, photos left out, or nil when nothing shared is a vCard. A vCard shared
+  /// as plain text counts too, so its URL: line isn't taken for a recipe link.
   static func sharedVCard(_ context: NSExtensionContext?) async -> String? {
     let providers = (context?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
-      .filter { $0.hasItemConformingToTypeIdentifier(UTType.vCard.identifier) }
-    guard !providers.isEmpty else { return nil }
     var cards: [String] = []
     for p in providers {
+      let type = p.hasItemConformingToTypeIdentifier(UTType.vCard.identifier) ? UTType.vCard : p.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) ? UTType.plainText : nil
+      guard let type else { continue }
       let data: Data? = await withCheckedContinuation { done in
-        _ = p.loadDataRepresentation(forTypeIdentifier: UTType.vCard.identifier) { data, _ in done.resume(returning: data) }
+        _ = p.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in done.resume(returning: data) }
       }
-      if let data, let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) { cards.append(text) }
+      if let data, let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1), text.range(of: "BEGIN:VCARD", options: .caseInsensitive) != nil { cards.append(text) }
     }
-    return withoutPhotos(cards.joined(separator: "\r\n"))
+    return cards.isEmpty ? nil : withoutPhotos(cards.joined(separator: "\r\n"))
   }
 
   /// Kinwall ignores photos, and they're most of a card's size: drops PHOTO, LOGO, SOUND and KEY
@@ -111,8 +151,9 @@ enum ContactImport {
   }
 }
 
-/// "Add Ms. Park to Kinwall?": each shared contact, marked New or Possible duplicate, with what to
-/// do with it, then Import.
+/// Each shared contact laid out like its contact sheet: initials, name, nickname, title and company
+/// with New or Already in Kinwall?, then its phones, emails, addresses, websites, dates, tags and
+/// notes with their labels, then what to do with it. Cancel and Save in the toolbar.
 struct ContactReview: View {
   @State var rows: [ContactImport.Row]
   let onDone: () -> Void
@@ -123,38 +164,54 @@ struct ContactReview: View {
     let count = rows.filter { $0.decision != .skip }.count
     NavigationStack {
       List {
-        Section {
-          Text(rows.count == 1 ? "Add \(rows[0].name) to Kinwall?" : "Add these \(rows.count) contacts to Kinwall?").font(.title3.bold())
-          if rows.contains(where: { !$0.duplicateIds.isEmpty }) {
-            Text("Possible duplicates have the same phone, email or name as a saved contact.").font(.subheadline).foregroundStyle(.secondary)
-          }
+        if rows.count > 1 {
+          Section { Text("\(rows.count) contacts to review. One with the same phone, email or name as a saved contact is marked Already in Kinwall?").font(.subheadline).foregroundStyle(.secondary) }
         }
         if let result { Section { Text(result).font(.headline) } }
         ForEach($rows) { $row in
           Section {
-            VStack(alignment: .leading, spacing: 4) {
-              HStack(alignment: .firstTextBaseline) {
-                Text(row.name).font(.headline)
-                Spacer()
-                if row.duplicateIds.isEmpty { Label("New", systemImage: "plus.circle").font(.caption.bold()).foregroundStyle(.green) }
-                else { Label("Possible duplicate", systemImage: "exclamationmark.triangle.fill").font(.caption.bold()).foregroundStyle(.orange) }
+            HStack(spacing: 14) {
+              Text(row.initials).font(.title3.bold()).foregroundStyle(.tint)
+                .frame(width: 56, height: 56).background(Circle().fill(.tint.opacity(0.15)))
+                .accessibilityHidden(true)
+              VStack(alignment: .leading, spacing: 4) {
+                Text(row.name).font(.title3.bold())
+                if !row.subtitle.isEmpty { Text(row.subtitle).font(.subheadline).foregroundStyle(.secondary) }
+                // An HStack, not a Label: in a List row a Label's icon sits in its own wide column.
+                HStack(spacing: 4) {
+                  Image(systemName: row.duplicateIds.isEmpty ? "plus.circle" : "exclamationmark.triangle.fill")
+                  Text(row.duplicateIds.isEmpty ? "New contact" : "Already in Kinwall?")
+                }
+                .font(.caption.bold()).foregroundStyle(row.duplicateIds.isEmpty ? .green : .orange)
               }
-              if !row.detail.isEmpty { Text(row.detail).font(.subheadline).foregroundStyle(.secondary) }
             }
-            Picker("Action", selection: $row.decision) {
+            .padding(.vertical, 4)
+            ForEach(row.groups, id: \.title) { group in
+              VStack(alignment: .leading, spacing: 8) {
+                Text(group.title.uppercased()).font(.caption.bold()).foregroundStyle(.secondary)
+                ForEach(Array(group.lines.enumerated()), id: \.offset) { _, line in
+                  HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    if !line.0.isEmpty { Text(line.0).font(.subheadline).foregroundStyle(.secondary).frame(width: 96, alignment: .leading) }
+                    Text(line.1).fixedSize(horizontal: false, vertical: true)
+                  }
+                }
+              }
+              .padding(.vertical, 2)
+            }
+            Picker(row.duplicateIds.isEmpty ? "Add to Kinwall" : "What to do", selection: $row.decision) {
               ForEach(row.duplicateIds.isEmpty ? [.add, .skip] : [.skip, .merge, .keep] as [ContactImport.Decision], id: \.self) { Text($0.label).tag($0) }
             }
             .disabled(saving || result != nil)
           }
         }
       }
-      .navigationTitle("Add to Kinwall")
+      .navigationTitle(rows.count == 1 ? "Import contact" : "Review contacts")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         if result == nil { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDone) } }
         ToolbarItem(placement: .confirmationAction) {
           if saving { ProgressView() }
-          else if result == nil { Button("Import \(count)") { Task { await importIt() } }.bold().disabled(count == 0) }
+          else if result == nil { Button(rows.count == 1 ? (rows[0].decision == .merge ? "Update" : "Save") : "Save \(count)") { Task { await importIt() } }.bold().disabled(count == 0) }
           else { Button("Done", action: onDone).bold() }
         }
       }

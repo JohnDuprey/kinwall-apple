@@ -18,7 +18,7 @@ final class ShareViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     view.backgroundColor = .systemBackground
-    label.text = "Reading recipe…"
+    label.text = "Opening in Kinwall…" // what was shared isn't known yet: a contact or a recipe link
     label.font = .preferredFont(forTextStyle: .headline)
     label.textAlignment = .center
     label.numberOfLines = 0
@@ -57,7 +57,7 @@ final class ShareViewController: UIViewController {
       }
       let outcome: Outcome
       let link = await sharedLink()
-      if let link { outcome = await Self.importRecipe(link, save: false) }
+      if let link { label.text = "Reading recipe…"; outcome = await Self.importRecipe(link, save: false) }
       else { outcome = .message("Share a link to a recipe page to import it into Kinwall.") }
       spinner.stopAnimating()
       spinner.isHidden = true
