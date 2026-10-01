@@ -120,6 +120,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 | Intent | Example | Tag |
 |---|---|---|
 | **Add to a list** | "Add to Groceries in Kinwall", then "Eggs" (Siri asks for the item: an App Shortcut phrase can't hold free text) | First |
+| **Add a grocery in one sentence** | "Add milk to Kinwall", for groceries the family has added before | Built |
 | **What's next** | "What's next on Kinwall?" | First |
 | **Complete a chore** | "Mark Take out trash done" | First |
 | **Points** | "How many points does Maya have?" | Later |
@@ -156,6 +157,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 - **Watch complications:** Next event (rectangular with the leave-by countdown, inline, corner) and Chores left (circular gauge), reading the Board with the Watch's key from the shared Keychain group. Built and embedded; not yet placed on a watch face in the Simulator.
 - **Siri and Shortcuts (built 2026-09-29):** App Shortcuts that work without setup, in `native/ios/SiriIntents.swift`, with lists, people, today's chores and stores as entities Siri can match in a phrase (by their plain name too, without the emoji):
   - **Add to a list:** "Add to Groceries in Kinwall" (Siri asks what to add; Groceries unless you name another list).
+  - **Add a grocery in one sentence (built 2026-09-30):** "Add milk to Kinwall" or "Add milk to my Kinwall list" adds it to Groceries and says "Added Milk to Groceries." It works only for items the family has added before: an App Shortcut phrase can hold an entity but never free text, so the item is an `ItemEntity` from the groceries catalog (`GET /api/lists/remembered`, which the widgets' key may read). Siri gets the 300 most used (`RememberedItem.siriCap`, then the most recent), each answering to its name without the emoji ("Milk 🥛" is "milk"). Apple allows 1,000 App Shortcut phrases per app, each parameter value counting once per phrase it's in, so 2 phrases × 300 leaves room for the lists, stores and chores. Siri refreshes them at launch and whenever the app comes back (`updateAppShortcutParameters()`), live from the server like the other entities. A new item, or one past the 300, uses "Add to Groceries in Kinwall" and then the item. The add is the normal list add, so the server fills in the remembered store and aisle; nothing edits the catalog (a kid's device can add without changing it).
   - **What's on today:** "What's on today in Kinwall" says what's left of today and how many chores are left, and shows it as a list.
   - **What's next**, as before.
   - **Start shopping:** "Start shopping in Kinwall" or "Start shopping at Neighborhood market in Kinwall" opens shopping mode on Groceries. The store rides along as `?store=` (the web app asks for the store until it reads that).

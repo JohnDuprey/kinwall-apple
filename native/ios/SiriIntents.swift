@@ -9,8 +9,9 @@ import WidgetKit
 // everyday-access key from the shared Keychain group, so the server's rules for that key apply: it
 // can add to lists and tick chores, and a device that belongs to one person can only tick theirs.
 //
-// Lists, people, today's chores and stores are entities, so Siri can match them in a phrase
-// ("Add to Groceries in Kinwall"); each also answers to its plain name, without the emoji.
+// Lists, people, today's chores, stores and remembered groceries are entities, so Siri can match
+// them in a phrase ("Add to Groceries in Kinwall", "Add milk to Kinwall"); each also answers to its
+// plain name, without the emoji.
 // App-only: the widget extension's settings keep plain strings (WidgetIntents.swift), and
 // OpenIntents.swift holds the intents both share.
 
@@ -130,6 +131,27 @@ struct StoreQuery: EntityStringQuery {
     func suggestedEntities() async throws -> [StoreEntity] { try await all() }
 }
 
+/// A grocery the family has added before (the groceries catalog), so Siri can hear it in one
+/// sentence: "Add milk to Kinwall". The most used RememberedItem.siriCap of them; anything else
+/// goes through "Add to Groceries in Kinwall", which asks for the item.
+struct ItemEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Grocery item"
+    static let defaultQuery = ItemQuery()
+    let id: String // the catalog's title, sent as is so the server finds where it goes
+    var name: String { RememberedItem(title: id, uses: 0, lastUsed: nil).plainName }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(id)", synonyms: ["\(name)"]) }
+}
+
+struct ItemQuery: EntityStringQuery {
+    func all() async throws -> [RememberedItem] {
+        guard let kinwall = try family() else { return DemoFamily.groceries.items.map { RememberedItem(title: $0.title, uses: 1, lastUsed: nil) } }
+        return RememberedItem.forSiri(try await kinwall.remembered())
+    }
+    func entities(for identifiers: [String]) async throws -> [ItemEntity] { identifiers.map(ItemEntity.init) }
+    func entities(matching string: String) async throws -> [ItemEntity] { RememberedItem.matching(string, in: try await all()).map { ItemEntity(id: $0.title) } }
+    func suggestedEntities() async throws -> [ItemEntity] { try await all().map { ItemEntity(id: $0.title) } }
+}
+
 // MARK: - Intents
 
 struct AddToListIntent: AppIntent {
@@ -151,6 +173,24 @@ struct AddToListIntent: AppIntent {
         try await explained { _ = try await kinwall.addItems([item], to: target.id) }
         WidgetCenter.shared.reloadAllTimelines()
         return .result(dialog: "Added \(item) to \(target.name).")
+    }
+}
+
+/// "Add milk to Kinwall": one sentence, always Groceries (an App Shortcut phrase holds one parameter).
+struct AddGroceryIntent: AppIntent {
+    static let title: LocalizedStringResource = "Add to Groceries"
+    static let description = IntentDescription("Adds something the family has bought before to Groceries.")
+    @Parameter(title: "Item", requestValueDialog: "What should I add?") var item: ItemEntity
+
+    static var parameterSummary: some ParameterSummary { Summary("Add \(\.$item) to Groceries") }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let kinwall = try family()
+        guard let list = defaultList(try await kinwall?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
+        guard let kinwall else { return .result(dialog: "Added \(item.name) to \(list.name).\(demoNote)") }
+        try await explained { _ = try await kinwall.addItems([item.id], to: list.id) }
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result(dialog: "Added \(item.name) to \(list.name).")
     }
 }
 
@@ -254,6 +294,11 @@ struct KinwallShortcuts: AppShortcutsProvider {
             "Add to my \(.applicationName) list",
             "Add something to \(.applicationName)",
         ], shortTitle: "Add to a list", systemImageName: "cart.badge.plus")
+        // Each item counts once per phrase toward the 1,000-phrase limit (RememberedItem.siriCap).
+        AppShortcut(intent: AddGroceryIntent(), phrases: [
+            "Add \(\.$item) to \(.applicationName)",
+            "Add \(\.$item) to my \(.applicationName) list",
+        ], shortTitle: "Add to Groceries", systemImageName: "basket")
         AppShortcut(intent: WhatsOnTodayIntent(), phrases: [
             "What's on today in \(.applicationName)",
             "What's on \(.applicationName) today",

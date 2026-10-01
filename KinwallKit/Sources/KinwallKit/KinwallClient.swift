@@ -83,6 +83,8 @@ public struct KinwallClient: Sendable {
     public func addItems(_ titles: [String], to listId: String) async throws -> [ListItem] {
         try await send("POST", "api/lists/\(listId)/items", body: titles.map { NewItem(title: $0) })
     }
+    /// The groceries catalog: every item name the family has added before (GET /api/lists/remembered).
+    public func remembered() async throws -> [RememberedItem] { try await send("GET", "api/lists/remembered") }
     public func setDone(_ done: Bool, item itemId: String, in listId: String) async throws {
         try await sendIgnoringBody("PATCH", "api/lists/\(listId)/items/\(itemId)", body: DoneBody(done: done))
     }
