@@ -75,6 +75,18 @@ func stubSession() -> URLSession {
         }
     }
 
+    /// Siri said "Added garlic to Groceries" with nothing saved: an add only counts once the
+    /// server hands the item back on that list.
+    @Test func addingOneItemNeedsTheServerToReturnIt() async throws {
+        let client = KinwallClient(baseURL: base, key: "k", session: stubSession())
+        StubProtocol.handler = { _ in (201, Data(#"[{"id":"i1","listId":"g","title":"garlic","done":false}]"#.utf8)) }
+        #expect(try await client.addItem("garlic", to: "g").id == "i1")
+        StubProtocol.handler = { _ in (200, Data("[]".utf8)) }
+        await #expect(throws: APIError.notSaved) { try await client.addItem("garlic", to: "g") }
+        StubProtocol.handler = { _ in (201, Data(#"[{"id":"i1","listId":"other","title":"garlic","done":false}]"#.utf8)) }
+        await #expect(throws: APIError.notSaved) { try await client.addItem("garlic", to: "g") }
+    }
+
     @Test func pairingPollsUntilApproved() async throws {
         var polls = 0
         StubProtocol.handler = { req in
@@ -96,6 +108,20 @@ func stubSession() -> URLSession {
     let instant = ISO8601DateFormatter().date(from: "2026-09-27T02:30:00Z")!
     #expect(HouseholdDate.key(for: instant, timezone: "America/New_York") == "2026-09-26")
     #expect(HouseholdDate.key(for: instant, timezone: "Europe/Berlin") == "2026-09-27")
+}
+
+struct FailingStore: ConnectionStore {
+    func load() throws -> Connection? { throw APIError.unreachable }
+    func save(_ connection: Connection) throws {}
+    func clear() throws {}
+}
+
+@Test func theDemoNeedsTheFamilyKeySurelyAbsent() {
+    let demo = MemoryConnectionStore(Connection(baseURL: URL(string: "https://demo.kinwall.family")!, key: "demo"))
+    #expect(DemoFamily.isOn(family: MemoryConnectionStore(), demo: demo))
+    #expect(!DemoFamily.isOn(family: FailingStore(), demo: demo)) // unreadable is not signed out
+    #expect(!DemoFamily.isOn(family: MemoryConnectionStore(Connection(baseURL: URL(string: "https://kinwall.family")!, key: "k")), demo: demo))
+    #expect(!DemoFamily.isOn(family: MemoryConnectionStore(), demo: MemoryConnectionStore()))
 }
 
 @Test func memoryStoreRoundTrips() throws {

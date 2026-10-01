@@ -24,23 +24,26 @@ func intentClient() throws -> KinwallClient {
 /// saved); signed out, the intent says to sign in.
 func family() throws -> KinwallClient? { DemoFamily.isOn ? nil : try intentClient() }
 private let demoNote = " This is the demo, so nothing is saved."
+/// The demo never says "Added": nothing is saved there, and a real family's add must not sound like one.
+func demoAdd(_ item: String) -> String { "Kinwall is showing the demo, so \(item) wasn't saved. Sign in to your family in Kinwall to add it." }
 
 enum KinwallIntentError: Error, CustomLocalizedStringResourceConvertible {
-    case signedOut, noList, noShoppingList, checklist(String), server(String)
+    case signedOut, noList, noShoppingList, checklist(String), server(String), demo(String)
     var localizedStringResource: LocalizedStringResource {
         switch self {
-        case .signedOut: "Open Kinwall and sign in first."
+        case .signedOut: "Kinwall isn't signed in on this iPhone. Open Kinwall and sign in first."
         case .noList: "Kinwall has no list to add to yet."
         case .noShoppingList: "Kinwall has no shopping list yet."
         case .checklist(let title): "\(title) has a checklist to finish first. Open Kinwall to tick it off."
         case .server(let message): "Kinwall said: \(message)"
+        case .demo(let item): "\(demoAdd(item))"
         }
     }
 }
 
 /// The server's refusal in its own words (a device that belongs to someone else, a 409 checklist).
-private func explained<T>(_ work: () async throws -> T) async throws -> T {
-    do { return try await work() } catch let e as APIError where e != .unreachable { throw KinwallIntentError.server(e.message) }
+func explained<T>(_ work: () async throws -> T) async throws -> T {
+    do { return try await work() } catch let e as APIError where e != .unreachable && e != .notSaved { throw KinwallIntentError.server(e.message) }
 }
 
 /// The household's day, for chores.
@@ -49,7 +52,7 @@ private func today(_ kinwall: KinwallClient) async -> String {
 }
 
 /// Groceries (FamilyList.groceries), else the first list.
-private func defaultList(_ lists: [FamilyList], shopping: Bool = false) -> FamilyList? {
+func defaultList(_ lists: [FamilyList], shopping: Bool = false) -> FamilyList? {
     FamilyList.groceries(in: lists) ?? (shopping ? nil : lists.first { !$0.archived })
 }
 
@@ -69,7 +72,7 @@ struct ListQuery: EntityStringQuery {
     func all() async throws -> [ListEntity] { try await (family()?.lists() ?? DemoFamily.lists).filter { !$0.archived }.map(ListEntity.init) }
     func entities(for identifiers: [String]) async throws -> [ListEntity] { try await all().filter { identifiers.contains($0.id) } }
     func entities(matching string: String) async throws -> [ListEntity] { try await all().filter { $0.name.localizedCaseInsensitiveContains(string) } }
-    func suggestedEntities() async throws -> [ListEntity] { try await all() }
+    func suggestedEntities() async throws -> [ListEntity] { Array(try await all().prefix(SiriBudget.maxLists)) }
     func defaultResult() async -> ListEntity? { (try? await family()?.lists() ?? DemoFamily.lists).flatMap { defaultList($0) }.map(ListEntity.init) }
 }
 
@@ -109,7 +112,7 @@ struct ChoreQuery: EntityStringQuery {
     }
     func entities(for identifiers: [String]) async throws -> [ChoreEntity] { try await all().filter { identifiers.contains($0.id) } }
     func entities(matching string: String) async throws -> [ChoreEntity] { try await all().filter { $0.title.localizedCaseInsensitiveContains(string) } }
-    func suggestedEntities() async throws -> [ChoreEntity] { try await all() }
+    func suggestedEntities() async throws -> [ChoreEntity] { Array(try await all().prefix(SiriBudget.maxChores)) }
 }
 
 /// A store the family shops at (the shopping lists' stores).
@@ -128,11 +131,11 @@ struct StoreQuery: EntityStringQuery {
     }
     func entities(for identifiers: [String]) async throws -> [StoreEntity] { identifiers.map(StoreEntity.init) }
     func entities(matching string: String) async throws -> [StoreEntity] { try await all().filter { $0.id.localizedCaseInsensitiveContains(string) } }
-    func suggestedEntities() async throws -> [StoreEntity] { try await all() }
+    func suggestedEntities() async throws -> [StoreEntity] { Array(try await all().prefix(SiriBudget.maxStores)) }
 }
 
 /// A grocery the family has added before (the groceries catalog), so Siri can hear it in one
-/// sentence: "Add milk to Kinwall". The most used RememberedItem.siriCap of them; anything else
+/// sentence: "Add milk to Kinwall". The most used RememberedItem.siriCap (SiriBudget) of them; anything else
 /// goes through "Add to Groceries in Kinwall", which asks for the item.
 struct ItemEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Grocery item"
@@ -169,10 +172,11 @@ struct AddToListIntent: AppIntent {
             guard let fallback = defaultList(try await kinwall?.lists() ?? DemoFamily.lists) else { throw KinwallIntentError.noList }
             target = ListEntity(fallback)
         }
-        guard let kinwall else { return .result(dialog: "Added \(item) to \(target.name).\(demoNote)") }
-        try await explained { _ = try await kinwall.addItems([item], to: target.id) }
+        guard let kinwall else { return .result(dialog: IntentDialog(stringLiteral: demoAdd(item))) }
+        // "Added" only once the server hands the item back (KinwallClient.addItem).
+        let added = try await explained { try await kinwall.addItem(item, to: target.id) }
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(dialog: "Added \(item) to \(target.name).")
+        return .result(dialog: "Added \(added.title) to \(target.name).")
     }
 }
 
@@ -187,8 +191,8 @@ struct AddGroceryIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let kinwall = try family()
         guard let list = defaultList(try await kinwall?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
-        guard let kinwall else { return .result(dialog: "Added \(item.name) to \(list.name).\(demoNote)") }
-        try await explained { _ = try await kinwall.addItems([item.id], to: list.id) }
+        guard let kinwall else { return .result(dialog: IntentDialog(stringLiteral: demoAdd(item.name))) }
+        try await explained { _ = try await kinwall.addItem(item.id, to: list.id) }
         WidgetCenter.shared.reloadAllTimelines()
         return .result(dialog: "Added \(item.name) to \(list.name).")
     }
@@ -293,11 +297,20 @@ struct KinwallShortcuts: AppShortcutsProvider {
             "Add something to \(\.$list) in \(.applicationName)",
             "Add to my \(.applicationName) list",
             "Add something to \(.applicationName)",
+            "Add to the grocery list in \(.applicationName)",
+            "Add something to the grocery list in \(.applicationName)",
         ], shortTitle: "Add to a list", systemImageName: "cart.badge.plus")
-        // Each item counts once per phrase toward the 1,000-phrase limit (RememberedItem.siriCap).
+        // Each item counts once per phrase toward Apple's 1,000-phrase limit, so the phrase counts
+        // here are KinwallKit's SiriBudget (7 item phrases × 112 items; 16 plain phrases in all).
+        // Siri's flexible matching covers small changes in wording ("my" for "the").
         AppShortcut(intent: AddGroceryIntent(), phrases: [
             "Add \(\.$item) to \(.applicationName)",
             "Add \(\.$item) to my \(.applicationName) list",
+            "Add \(\.$item) to the grocery list in \(.applicationName)",
+            "Add \(\.$item) to my grocery list in \(.applicationName)",
+            "Add \(\.$item) to groceries in \(.applicationName)",
+            "Add \(\.$item) to the shopping list in \(.applicationName)",
+            "Put \(\.$item) on the grocery list in \(.applicationName)",
         ], shortTitle: "Add to Groceries", systemImageName: "basket")
         AppShortcut(intent: WhatsOnTodayIntent(), phrases: [
             "What's on today in \(.applicationName)",

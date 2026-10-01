@@ -7,8 +7,14 @@ import Foundation
 public enum DemoFamily {
     #if canImport(Security)
     /// The demo is showing and no real family is connected.
-    public static var isOn: Bool { (try? SharedKeychain.widgetStore.load()) == nil && (try? SharedKeychain.demoStore.load()) != nil }
+    public static var isOn: Bool { isOn(family: SharedKeychain.widgetStore, demo: SharedKeychain.demoStore) }
     #endif
+    /// Only when the family's key is surely absent: a Keychain read that fails is not "no family",
+    /// or Siri would answer from the demo and save nothing while a real family is signed in.
+    public static func isOn(family: ConnectionStore, demo: ConnectionStore) -> Bool {
+        guard let noFamily = try? family.load() == nil, noFamily else { return false }
+        return (try? demo.load()) != nil
+    }
 
     public static let members: [Member] = decode("""
     [{"id":"m1","name":"Alex","color":"#7AB8FF","avatar":"🦊","pointsToday":10,"pointsWeek":40,"balance":12},

@@ -16,10 +16,8 @@ public struct RememberedItem: Codable, Hashable, Sendable {
         })).split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
-    /// App Shortcut phrases are capped at 1,000 per app, every parameter value counting once per
-    /// phrase that holds it. Item phrases × this cap (2 × 300) leaves room for the lists, stores
-    /// and chores phrases.
-    public static let siriCap = 300
+    /// How many groceries Siri can hear in one sentence: SiriBudget.itemCap.
+    public static let siriCap = SiriBudget.itemCap
 
     /// The most used first (then the most recent), at most `cap`, each plain name once.
     public static func forSiri(_ items: [RememberedItem], cap: Int = siriCap) -> [RememberedItem] {
@@ -34,5 +32,32 @@ public struct RememberedItem: Codable, Hashable, Sendable {
     public static func matching(_ text: String, in items: [RememberedItem]) -> [RememberedItem] {
         let wanted = RememberedItem(title: text, uses: 0, lastUsed: nil).plainName
         return items.filter { $0.plainName.localizedCaseInsensitiveContains(wanted) }
+    }
+}
+
+/// Apple allows 1,000 App Shortcut phrases per app (per language), and each value of a phrase's
+/// parameter counts once per phrase that holds it (WWDC23 "Spotlight your app with App Shortcuts").
+/// We aim under 900 so a miscount doesn't cost Siri its phrases. These counts must match
+/// KinwallShortcuts in native/ios/SiriIntents.swift; the entity queries cap their suggestions here.
+///
+///     16 plain phrases
+///   +  2 list phrases  × 20 lists   =  40
+///   +  1 store phrase  × 20 stores  =  20
+///   +  1 chore phrase  × 40 chores  =  40
+///   +  7 item phrases  × 112 items  = 784
+///   = 900
+public enum SiriBudget {
+    public static let limit = 900
+    public static let plainPhrases = 16
+    public static let listPhrases = 2, maxLists = 20
+    public static let storePhrases = 1, maxStores = 20
+    public static let chorePhrases = 1, maxChores = 40
+    public static let itemPhrases = 7
+    /// What's left after everything else, split across the item phrases.
+    public static var itemCap: Int {
+        (limit - plainPhrases - listPhrases * maxLists - storePhrases * maxStores - chorePhrases * maxChores) / itemPhrases
+    }
+    public static var total: Int {
+        plainPhrases + listPhrases * maxLists + storePhrases * maxStores + chorePhrases * maxChores + itemPhrases * itemCap
     }
 }

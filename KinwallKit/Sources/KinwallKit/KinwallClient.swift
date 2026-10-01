@@ -17,6 +17,8 @@ public struct APIError: Error, Equatable, LocalizedError, Sendable {
     /// No answer at all (offline, server down). Stands in for URLError, whose NWPath App Intents
     /// can't send over XPC: an intent or entity query that threw one crashed the app.
     public static let unreachable = APIError(status: 0, message: "Can't reach Kinwall right now.")
+    /// The server answered but didn't hand back what was added.
+    public static let notSaved = APIError(status: 0, message: "Kinwall didn't save it. Try again in the app.")
 }
 
 /// Thin async client over Kinwall's REST API. Every call is one request; callers own caching.
@@ -82,6 +84,12 @@ public struct KinwallClient: Sendable {
     @discardableResult
     public func addItems(_ titles: [String], to listId: String) async throws -> [ListItem] {
         try await send("POST", "api/lists/\(listId)/items", body: titles.map { NewItem(title: $0) })
+    }
+    /// One item, for Siri: returns it only once the server answered with it on that list, so the
+    /// caller never says "Added" for a write that didn't happen (an empty or other-list answer).
+    public func addItem(_ title: String, to listId: String) async throws -> ListItem {
+        guard let item = try await addItems([title], to: listId).first(where: { $0.listId == listId }) else { throw APIError.notSaved }
+        return item
     }
     /// The groceries catalog: every item name the family has added before (GET /api/lists/remembered).
     public func remembered() async throws -> [RememberedItem] { try await send("GET", "api/lists/remembered") }
