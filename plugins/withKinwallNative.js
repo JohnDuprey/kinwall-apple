@@ -151,12 +151,14 @@ const SHARE_KOTLIN = String.raw`
     intent.data = Uri.parse("family.kinwall.app:/open?to=recipes%2Fimport&url=" + Uri.encode(link))
   }
 
-  // Shared contacts (ACTION_SEND or ACTION_SEND_MULTIPLE of a vCard): their text goes to the cache
+  // Shared contacts (ACTION_SEND or ACTION_SEND_MULTIPLE of a vCard, or a vCard shared as plain
+  // text, whose URL: line would otherwise open the recipe import): their text goes to the cache
   // (KinwallNativeModule's takeSharedContacts) and the intent becomes ?to=contacts/import; n= makes
   // each share a new link. A contact that can't be read still opens Contacts.
   private fun shareContacts(intent: Intent): Boolean {
     if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return false
-    if (intent.type?.lowercase() !in listOf("text/x-vcard", "text/vcard", "text/directory")) return false
+    val vcardText = intent.type?.lowercase() == "text/plain" && intent.getStringExtra(Intent.EXTRA_TEXT)?.contains("BEGIN:VCARD", ignoreCase = true) == true
+    if (!vcardText && intent.type?.lowercase() !in listOf("text/x-vcard", "text/vcard", "text/directory")) return false
     val uris = if (intent.action == Intent.ACTION_SEND_MULTIPLE) IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
       else listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
     val file = File(cacheDir, "shared-contacts.vcf")
