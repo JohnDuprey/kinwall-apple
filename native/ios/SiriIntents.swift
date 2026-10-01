@@ -10,8 +10,9 @@ import WidgetKit
 // can add to lists and tick chores, and a device that belongs to one person can only tick theirs.
 //
 // Lists, people, today's chores and stores are entities, so Siri can match them in a phrase
-// ("Add to Groceries in Kinwall"). App-only: the widget extension's settings keep plain strings
-// (WidgetIntents.swift), and OpenIntents.swift holds the intents both share.
+// ("Add to Groceries in Kinwall"); each also answers to its plain name, without the emoji.
+// App-only: the widget extension's settings keep plain strings (WidgetIntents.swift), and
+// OpenIntents.swift holds the intents both share.
 
 func intentClient() throws -> KinwallClient {
     guard let connection = try SharedKeychain.widgetStore.load() else { throw KinwallIntentError.signedOut }
@@ -38,7 +39,7 @@ enum KinwallIntentError: Error, CustomLocalizedStringResourceConvertible {
 
 /// The server's refusal in its own words (a device that belongs to someone else, a 409 checklist).
 private func explained<T>(_ work: () async throws -> T) async throws -> T {
-    do { return try await work() } catch let e as APIError { throw KinwallIntentError.server(e.message) }
+    do { return try await work() } catch let e as APIError where e != .unreachable { throw KinwallIntentError.server(e.message) }
 }
 
 /// The household's day, for chores.
@@ -59,7 +60,7 @@ struct ListEntity: AppEntity {
     let id: String
     let name: String
     let emoji: String?
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(emoji.map { "\($0) " } ?? "")\(name)") }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(emoji.map { "\($0) " } ?? "")\(name)", synonyms: ["\(name)"]) }
     init(_ l: FamilyList) { id = l.id; name = l.name; emoji = l.emoji }
 }
 
@@ -77,7 +78,7 @@ struct PersonEntity: AppEntity {
     let id: String
     let name: String
     let avatar: String?
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(avatar.map { "\($0) " } ?? "")\(name)") }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(avatar.map { "\($0) " } ?? "")\(name)", synonyms: ["\(name)"]) }
     init(_ m: Member) { id = m.id; name = m.name; avatar = m.avatar }
 }
 
@@ -96,7 +97,7 @@ struct ChoreEntity: AppEntity {
     let title: String
     let emoji: String?
     let memberId: String?
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(emoji.map { "\($0) " } ?? "")\(title)") }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(emoji.map { "\($0) " } ?? "")\(title)", synonyms: ["\(title)"]) }
     init(_ c: ChoreDay) { id = c.id; title = c.title; emoji = c.emoji; memberId = c.memberId }
 }
 

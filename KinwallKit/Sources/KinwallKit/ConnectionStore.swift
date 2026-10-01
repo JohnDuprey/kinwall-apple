@@ -63,5 +63,8 @@ public struct KeychainConnectionStore: ConnectionStore {
     }
 }
 
-public struct KeychainError: Error, Equatable { public let status: OSStatus }
+public struct KeychainError: Error, Equatable, LocalizedError {
+    public let status: OSStatus
+    public var errorDescription: String? { "Kinwall couldn't read its sign-in from the Keychain (\(status)). Open Kinwall and sign in again." }
+}
 #endif

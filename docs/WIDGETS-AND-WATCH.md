@@ -119,7 +119,7 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 
 | Intent | Example | Tag |
 |---|---|---|
-| **Add to a list** | "Add eggs to Groceries in Kinwall" | First |
+| **Add to a list** | "Add to Groceries in Kinwall", then "Eggs" (Siri asks for the item: an App Shortcut phrase can't hold free text) | First |
 | **What's next** | "What's next on Kinwall?" | First |
 | **Complete a chore** | "Mark Take out trash done" | First |
 | **Points** | "How many points does Maya have?" | Later |
@@ -154,13 +154,15 @@ These run on iPhone, iPad and Watch, and power the interactive widgets too.
 - **Smart Stack relevance (iPhone, built 2026-09-30):** Now & Next (and Today and Chores left, which share its entries) rise over the hour before the next leave-by time or start; Take now is up top while a dose is due (and not while a Focus hides it); Chores rises a little while any are left (`TimelineEntryRelevance`).
 - **Watch app (first pass):** the iPhone app creates an "Apple Watch" key and sends it over WatchConnectivity; the Watch keeps it in its own Keychain. Screens: Today (Now & Next with the countdown, then later today), My chores (asks whose Watch it is once, Anyone chores count for that person, haptic on tick), Lists (tick items, add by dictation or Scribble). Checked in the Simulator: the key arrives from the iPhone, Today shows live data, a chore ticked on the Watch is credited to the Watch's person, and list items tick off.
 - **Watch complications:** Next event (rectangular with the leave-by countdown, inline, corner) and Chores left (circular gauge), reading the Board with the Watch's key from the shared Keychain group. Built and embedded; not yet placed on a watch face in the Simulator.
-- **Siri and Shortcuts (built 2026-09-29):** App Shortcuts that work without setup, in `native/ios/SiriIntents.swift`, with lists, people, today's chores and stores as entities Siri can match in a phrase:
+- **Siri and Shortcuts (built 2026-09-29):** App Shortcuts that work without setup, in `native/ios/SiriIntents.swift`, with lists, people, today's chores and stores as entities Siri can match in a phrase (by their plain name too, without the emoji):
   - **Add to a list:** "Add to Groceries in Kinwall" (Siri asks what to add; Groceries unless you name another list).
   - **What's on today:** "What's on today in Kinwall" says what's left of today and how many chores are left, and shows it as a list.
   - **What's next**, as before.
   - **Start shopping:** "Start shopping in Kinwall" or "Start shopping at Neighborhood market in Kinwall" opens shopping mode on Groceries. The store rides along as `?store=` (the web app asks for the store until it reads that).
   - **Mark a chore done:** "Mark Water plants done in Kinwall", with an optional **Who did it** that gets the points for an Anyone chore. The server's rules for the widgets' key apply: a device that belongs to one person can only tick theirs, and Kinwall's refusal is read out.
   - **Start the night screen:** "Start the Kinwall night screen" opens the app on the dim night clock (the event the header's 🌙 button sends).
+
+  - **Errors (fixed 2026-09-30):** an intent or entity query that couldn't reach the server used to crash the app: App Intents send a thrown error back over XPC, and a `URLError` carries the connection's `NWPath`, which XPC can't encode. Siri just failed, and the app also crashed at launch while Siri refreshed its list names. KinwallKit now throws `APIError.unreachable` ("Can't reach Kinwall right now.") instead, and a Keychain failure reads as one.
 
   They run in the app's process with the widgets' key; the ones that open the app hand their link to the web app through the native module (`PendingLink`), so one that launches the app isn't lost. In the demo they answer from the demo family and save nothing. Checked in the iOS 26.5 Simulator (iPhone 17 Pro): What's on today, Mark a chore done (with its chore and person pickers) and Night screen. The earlier "Couldn't find AppShortcutsProvider" came from the Simulator build being signed ad hoc, with no team; `scripts/sign-simulator.sh` re-signs it (README).
 - **Take now and Clock & next (built 2026-09-29):** Take now reads `GET /api/medications/due` with the widgets' key every 15 minutes; the Home Screen size has **Taken**, which marks the first dose (`MarkDoseIntent`). The medicines feature turned off (404) shows "Nothing due". Checked in the Simulator with the demo: both on the Home Screen, and Take now and Chores left on the Lock Screen.

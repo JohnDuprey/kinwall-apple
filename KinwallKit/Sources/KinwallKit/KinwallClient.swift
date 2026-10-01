@@ -14,6 +14,9 @@ public struct APIError: Error, Equatable, LocalizedError, Sendable {
     public let status: Int
     public let message: String
     public var errorDescription: String? { message }
+    /// No answer at all (offline, server down). Stands in for URLError, whose NWPath App Intents
+    /// can't send over XPC: an intent or entity query that threw one crashed the app.
+    public static let unreachable = APIError(status: 0, message: "Can't reach Kinwall right now.")
 }
 
 /// Thin async client over Kinwall's REST API. Every call is one request; callers own caching.
@@ -127,7 +130,8 @@ public struct KinwallClient: Sendable {
     }
 
     private func perform(_ req: URLRequest) async throws -> Data {
-        let (data, response) = try await session.data(for: req)
+        let data: Data, response: URLResponse
+        do { (data, response) = try await session.data(for: req) } catch is URLError { throw APIError.unreachable }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             let message = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? HTTPURLResponse.localizedString(forStatusCode: status)

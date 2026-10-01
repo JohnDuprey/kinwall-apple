@@ -62,6 +62,19 @@ func stubSession() -> URLSession {
         }
     }
 
+    /// App Intents send a thrown error back over XPC, which only encodes NSSecureCoding values. A
+    /// URLError carries the connection's NWPath, which isn't, so throwing it crashed the app.
+    @Test func unreachableServerThrowsAnErrorXPCCanCarry() async throws {
+        let client = KinwallClient(baseURL: URL(string: "http://127.0.0.1:9")!, key: "k")
+        do {
+            _ = try await client.lists()
+            Issue.record("expected an error")
+        } catch {
+            #expect(error as? APIError == .unreachable)
+            _ = try NSKeyedArchiver.archivedData(withRootObject: error as NSError, requiringSecureCoding: true)
+        }
+    }
+
     @Test func pairingPollsUntilApproved() async throws {
         var polls = 0
         StubProtocol.handler = { req in
