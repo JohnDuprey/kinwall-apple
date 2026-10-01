@@ -6,8 +6,9 @@ import { type Appearance, parseAppearance } from './appearance'
 
 // The native screens (address, sign-in, can't reach) in Kinwall's own colors, light and dark, the
 // same tokens the web app's default scheme uses, so the frame matches what loads inside it.
-const LIGHT = { bg: '#FFFBF5', field: '#FFFFFF', text: '#3A2E27', dim: '#6B5D52', border: '#E8D8C6', accent: '#A5613F', ink: '#FFFFFF', problem: '#B3261E' }
-const DARK = { bg: '#1C1712', field: '#2A221B', text: '#F3EAE0', dim: '#C4B5A7', border: '#4A3C30', accent: '#FF9E7A', ink: '#2A1A12', problem: '#FF8A80' }
+// Sage (web/src/skins.ts); buttons carry white text on the light accent (5.6:1), dark ink on the dark one.
+const LIGHT = { bg: '#E9F6EF', field: '#F9FEFB', text: '#14261D', dim: '#446353', border: '#B8D3C4', accent: '#00774B', ink: '#FFFFFF', problem: '#B3261E' }
+const DARK = { bg: '#0D1D15', field: '#193025', text: '#E5F0EA', dim: '#A0BEAE', border: '#3D5E4D', accent: '#44C28D', ink: '#0D1D15', problem: '#FF8A80' }
 export type Palette = typeof LIGHT
 
 const make = (c: Palette) => StyleSheet.create({

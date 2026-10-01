@@ -271,10 +271,10 @@ struct ActivityTheme {
         // Without the family's colors (the demo, a fresh sign-in): Kinwall's light ones, fixed. The
         // background tint and the text resolve light and dark differently on the Lock Screen, so
         // dynamic colors left light text on a light card.
-        bg = Color(hex: c?.bg) ?? Color(hex: "#FFFBF5")!
-        fg = Color(hex: c?.fg) ?? Color(hex: "#3A2E27")!
-        accent = Color(hex: c?.accent) ?? Color(hex: "#A5613F")!
-        accentOnDark = Color(hex: "#FF9E7A")!
+        bg = Color(hex: c?.bg) ?? Color(hex: "#E9F6EF")!
+        fg = Color(hex: c?.fg) ?? Color(hex: "#14261D")!
+        accent = Color(hex: c?.accent) ?? Color(hex: "#00774B")!
+        accentOnDark = Color(hex: "#44C28D")!
     }
 }
 

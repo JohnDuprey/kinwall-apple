@@ -35,7 +35,7 @@ export function frameColors(a: Appearance | null, systemDark: boolean): (Surface
  * with Kinwall's text and accent for light or dark; null draws Kinwall's own, following the system. */
 export function activityColors(frame: (Surface & { dark: boolean }) | null): { bg: string; fg: string; accent: string } | null {
   if (!frame) return null
-  return frame.dark ? { bg: frame.bg, fg: '#F3EAE0', accent: '#FF9E7A' } : { bg: frame.bg, fg: '#3A2E27', accent: '#A5613F' }
+  return frame.dark ? { bg: frame.bg, fg: '#E5F0EA', accent: '#44C28D' } : { bg: frame.bg, fg: '#14261D', accent: '#00774B' }
 }
 
 /** The Android widgets' colors (src/widgets.tsx): the family's surfaces with Kinwall's text and
@@ -43,8 +43,8 @@ export function activityColors(frame: (Surface & { dark: boolean }) | null): { b
  * sent any. `systemDark`: the representation Android asks for (its dark theme on or off). */
 type Hex = `#${string}`
 export type WidgetPalette = { bg: Hex; card: Hex; fg: Hex; dim: Hex; accent: Hex }
-const LIGHT: WidgetPalette = { bg: '#FFFBF5', card: '#FFFFFF', fg: '#3A2E27', dim: '#6B5D52', accent: '#A5613F' }
-const DARK: WidgetPalette = { bg: '#1C1712', card: '#2A221B', fg: '#F3EAE0', dim: '#C4B5A7', accent: '#FF9E7A' }
+const LIGHT: WidgetPalette = { bg: '#E9F6EF', card: '#F9FEFB', fg: '#14261D', dim: '#446353', accent: '#00774B' }
+const DARK: WidgetPalette = { bg: '#0D1D15', card: '#193025', fg: '#E5F0EA', dim: '#A0BEAE', accent: '#44C28D' }
 export function widgetPalette(a: Appearance | null, systemDark: boolean): WidgetPalette {
   const f = frameColors(a, systemDark)
   const base = (f ? f.dark : systemDark) ? DARK : LIGHT
