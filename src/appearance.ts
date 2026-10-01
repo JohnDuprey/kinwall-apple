@@ -31,8 +31,10 @@ export function frameColors(a: Appearance | null, systemDark: boolean): (Surface
   return { dark, ...(dark ? a.colors.dark : a.colors.light) }
 }
 
-/** A Live Activity's colors (modules/kinwall-native/ios/LiveActivities.swift): the frame's background
- * with Kinwall's text and accent for light or dark; null draws Kinwall's own, following the system. */
+/** The colors sent with a Live Activity: the frame's background with Kinwall's text and accent for
+ * light or dark; null for Kinwall's own. Only the accent is used now (the cooking alarm's tint on
+ * iOS, Android's countdown notification color): the activity itself draws on the system's
+ * background with Kinwall's green as an accent (targets/widgets/LiveActivities.swift). */
 export function activityColors(frame: (Surface & { dark: boolean }) | null): { bg: string; fg: string; accent: string } | null {
   if (!frame) return null
   return frame.dark ? { bg: frame.bg, fg: '#E5F0EA', accent: '#44C28D' } : { bg: frame.bg, fg: '#14261D', accent: '#00774B' }

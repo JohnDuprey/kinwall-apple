@@ -25,8 +25,9 @@ struct KinwallLiveActivity: Widget {
     static func configuration(_ lockScreen: @escaping (ActivityViewContext<KinwallActivityAttributes>) -> some View) -> some WidgetConfiguration {
         ActivityConfiguration(for: KinwallActivityAttributes.self) { context in
             lockScreen(context)
-                .activityBackgroundTint(context.theme.bg)
-                .activitySystemActionForegroundColor(context.theme.fg)
+                // The system's own background (light or dark with the phone) and text: the accent only
+                // marks the countdown and the main button, as in the Dynamic Island.
+                .activityBackgroundTint(nil)
                 .widgetURL(context.attributes.link)
         } dynamicIsland: { context in
             DynamicIsland {
@@ -37,7 +38,7 @@ struct KinwallLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Trailing(context: context).font(.title3.weight(.semibold)).lineLimit(1).frame(maxWidth: 96, alignment: .trailing)
-                        .foregroundStyle(context.theme.accentOnDark).padding(.trailing, 4)
+                        .foregroundStyle(ActivityTheme.accentOnDark).padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -48,20 +49,20 @@ struct KinwallLiveActivity: Widget {
                         }
                         if context.attributes.kind == "shopping" { ShoppingLineView(context: context).font(.subheadline).foregroundStyle(.secondary) }
                         else if let line = context.stepLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
-                        if context.attributes.kind == "shopping" { ShoppingButtons(context: context, onDark: true) }
-                        if context.attributes.kind == "medication" { Text(context.medicationLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1); DoseButtons(context: context, onDark: true) }
+                        if context.attributes.kind == "shopping" { ShoppingButtons(context: context) }
+                        if context.attributes.kind == "medication" { Text(context.medicationLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1); DoseButtons(context: context) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
                 }
             } compactLeading: {
                 Text(context.attributes.icon)
             } compactTrailing: {
-                Trailing(context: context).frame(maxWidth: 52).foregroundStyle(context.theme.accentOnDark)
+                Trailing(context: context).frame(maxWidth: 52).foregroundStyle(ActivityTheme.accentOnDark)
             } minimal: {
                 Text(context.attributes.icon)
             }
             .widgetURL(context.attributes.link)
-            .keylineTint(context.theme.accentOnDark)
+            .keylineTint(ActivityTheme.accentOnDark)
         }
     }
 }
@@ -81,14 +82,13 @@ struct FamilyActivity: View {
 struct SmallActivity: View {
     let context: ActivityViewContext<KinwallActivityAttributes>
     var body: some View {
-        let theme = context.theme
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(context.attributes.icon)
                 Spacer(minLength: 4)
-                Trailing(context: context).font(.headline).foregroundStyle(theme.accent).lineLimit(1)
+                Trailing(context: context).font(.headline).foregroundStyle(ActivityTheme.accent).lineLimit(1)
             }
-            Text(context.headline).font(.subheadline.weight(.semibold)).foregroundStyle(context.due ? theme.accent : theme.fg).lineLimit(2)
+            Text(context.headline).font(.subheadline.weight(.semibold)).foregroundStyle(context.due ? ActivityTheme.accent : .primary).lineLimit(2)
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -137,8 +137,6 @@ extension ActivityViewContext<KinwallActivityAttributes> {
         return ShoppingLine(aisle: s.detail, next: after.map { ($0.title, $0.aisle) }, left: s.count)
     }
 
-    var theme: ActivityTheme { ActivityTheme(attributes.colors) }
-
     /// Kind words only, never "missed": "Due now · still time until 8:00 PM", "Still time · until 8:00 PM".
     var medicationLine: String {
         let until = (attributes.endsAt ?? s.date).map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
@@ -165,22 +163,21 @@ struct Trailing: View {
 struct LockScreenActivity: View {
     let context: ActivityViewContext<KinwallActivityAttributes>
     var body: some View {
-        let theme = context.theme
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 8) {
                 Text(context.attributes.icon).font(.title3)
-                Text(lead).font(.subheadline.weight(.semibold)).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(2).minimumScaleFactor(0.8)
+                Text(lead).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).lineLimit(2).minimumScaleFactor(0.8)
                 Spacer(minLength: 8)
-                Trailing(context: context).font(.title2.weight(.semibold)).foregroundStyle(theme.accent).lineLimit(1).frame(maxWidth: 110, alignment: .trailing)
+                Trailing(context: context).font(.title2.weight(.semibold)).foregroundStyle(ActivityTheme.accent).lineLimit(1).frame(maxWidth: 110, alignment: .trailing)
             }
-            Text(context.headline).font(.headline).foregroundStyle(context.due ? theme.accent : theme.fg).lineLimit(2)
-            if let line = context.stepLine { Text(line).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(2) }
+            Text(context.headline).font(.headline).foregroundStyle(context.due ? ActivityTheme.accent : .primary).lineLimit(2)
+            if let line = context.stepLine { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) }
             if context.attributes.kind == "shopping" {
-                ShoppingLineView(context: context).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75))
+                ShoppingLineView(context: context).font(.subheadline).foregroundStyle(.secondary)
                 ShoppingButtons(context: context)
             }
             if context.attributes.kind == "medication" {
-                Text(context.medicationLine).font(.subheadline).foregroundStyle(theme.fg.opacity(0.75)).lineLimit(1)
+                Text(context.medicationLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 DoseButtons(context: context)
             }
         }
@@ -219,18 +216,17 @@ struct ShoppingLineView: View {
 /// Taken and Snooze 10 min (MarkDoseActivityIntent, native/ios/LiveActivityIntents.swift).
 struct DoseButtons: View {
     let context: ActivityViewContext<KinwallActivityAttributes>
-    var onDark = false
     var body: some View {
         if let dose = context.attributes.dose {
             HStack(spacing: 10) {
                 Button(intent: MarkDoseActivityIntent(medicationId: dose.medicationId, date: dose.date, time: dose.time, action: "taken")) {
                     Label("Taken", systemImage: "checkmark").frame(maxWidth: .infinity)
                 }
-                .tint(context.theme.accent)
+                .buttonStyle(.bordered).tint(ActivityTheme.accent)
                 Button(intent: MarkDoseActivityIntent(medicationId: dose.medicationId, date: dose.date, time: dose.time, action: "snooze")) {
                     Label("Snooze 10 min", systemImage: "zzz").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered).tint(onDark ? .white : context.theme.fg)
+                .buttonStyle(.bordered).tint(.primary)
             }
             .font(.subheadline.weight(.semibold))
         }
@@ -240,8 +236,6 @@ struct DoseButtons: View {
 /// Got it ticks the next item (GotItIntent, native/ios/LiveActivityIntents.swift); Open opens shopping mode.
 struct ShoppingButtons: View {
     let context: ActivityViewContext<KinwallActivityAttributes>
-    /// In the Dynamic Island, which is always black.
-    var onDark = false
     var body: some View {
         HStack(spacing: 10) {
             // On a combined trip the item can be on the other list: its entry carries that list's id.
@@ -249,11 +243,11 @@ struct ShoppingButtons: View {
                 Button(intent: GotItIntent(listId: listId, itemId: itemId)) {
                     Label("Got it", systemImage: "checkmark").frame(maxWidth: .infinity)
                 }
-                .tint(context.theme.accent)
+                .buttonStyle(.bordered).tint(ActivityTheme.accent)
             }
             if let link = context.attributes.link {
                 Link(destination: link) { Label("Open", systemImage: "cart").frame(maxWidth: .infinity) }
-                    .buttonStyle(.bordered).tint(onDark ? .white : context.theme.fg)
+                    .buttonStyle(.bordered).tint(.primary)
             }
         }
         .font(.subheadline.weight(.semibold))
@@ -262,20 +256,12 @@ struct ShoppingButtons: View {
 
 // MARK: - Colors
 
-/// The family's colors when the app had them, else Kinwall's own (web/src default scheme).
-struct ActivityTheme {
-    let bg: Color, fg: Color, accent: Color
-    /// The Dynamic Island is always black: the dark accent reads on it.
-    let accentOnDark: Color
-    init(_ c: KinwallActivityAttributes.Colors?) {
-        // Without the family's colors (the demo, a fresh sign-in): Kinwall's light ones, fixed. The
-        // background tint and the text resolve light and dark differently on the Lock Screen, so
-        // dynamic colors left light text on a light card.
-        bg = Color(hex: c?.bg) ?? Color(hex: "#E9F6EF")!
-        fg = Color(hex: c?.fg) ?? Color(hex: "#14261D")!
-        accent = Color(hex: c?.accent) ?? Color(hex: "#00774B")!
-        accentOnDark = Color(hex: "#44C28D")!
-    }
+/// Kinwall's green, only as an accent on the system's background: the dark one (5.0:1 on the light
+/// Lock Screen card), the light one (7.6:1 on the dark card, 9.4:1 on the black Dynamic Island).
+/// The family's colors (attributes.colors) still tint the cooking alarm, not the activity.
+enum ActivityTheme {
+    static let accent = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(accentOnDark) : UIColor(red: 0x00 / 255, green: 0x77 / 255, blue: 0x4B / 255, alpha: 1) })
+    static let accentOnDark = Color(hex: "#44C28D")!
 }
 
 extension Color {
