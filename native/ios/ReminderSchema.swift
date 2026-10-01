@@ -136,7 +136,7 @@ struct CreateKinwallReminderIntent {
     var locationTrigger: KinwallLocationTrigger?
     var section: KinwallReminderSection?
 
-    func perform() async throws -> some ReturnsValue<KinwallReminder> {
+    func perform() async throws -> some ReturnsValue<KinwallReminder> & ProvidesDialog {
         let kinwall = try family()
         let target: KinwallReminderList
         if let list { target = list } else {
@@ -145,9 +145,10 @@ struct CreateKinwallReminderIntent {
         }
         // Siri says it's added once this returns, so the demo throws and a real add waits for the item.
         guard let kinwall else { throw KinwallIntentError.demo(title) }
-        let item = try await explained { try await kinwall.addItem(title, to: target.id) }
+        // "Add water and garlic" with garlic already there: one of each, and Siri says which.
+        let item = try await explained { try await kinwall.addItem(title, to: target.id, skipExisting: true) }
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(value: KinwallReminder(item, in: target))
+        return .result(value: KinwallReminder(item, in: target), dialog: IntentDialog(stringLiteral: item.addedLine(to: target.name)))
     }
 }
 #endif

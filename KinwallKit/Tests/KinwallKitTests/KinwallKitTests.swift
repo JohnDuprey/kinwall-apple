@@ -87,6 +87,20 @@ func stubSession() -> URLSession {
         await #expect(throws: APIError.notSaved) { try await client.addItem("garlic", to: "g") }
     }
 
+    /// "Add water and garlic": garlic was already on Groceries, so Siri says so instead of adding a second.
+    @Test func siriAddsSkipWhatsAlreadyThere() async throws {
+        let client = KinwallClient(baseURL: base, key: "k", session: stubSession())
+        StubProtocol.seen = []
+        StubProtocol.handler = { _ in (201, Data(#"[{"id":"i1","listId":"g","title":"Garlic","done":false,"existing":"open"}]"#.utf8)) }
+        let garlic = try await client.addItem("garlic", to: "g", skipExisting: true)
+        #expect(StubProtocol.seen.first?.url?.query == "skipExisting=1")
+        #expect(garlic.addedLine(to: "Groceries") == "Garlic is already on Groceries.")
+        StubProtocol.handler = { _ in (201, Data(#"[{"id":"i2","listId":"g","title":"Milk","done":false,"existing":"reopened"}]"#.utf8)) }
+        #expect(try await client.addItem("milk", to: "g", skipExisting: true).addedLine(to: "Groceries") == "Added Milk back to Groceries.")
+        StubProtocol.handler = { _ in (201, Data(#"[{"id":"i3","listId":"g","title":"water","done":false}]"#.utf8)) }
+        #expect(try await client.addItem("water", to: "g", skipExisting: true).addedLine(to: "Groceries") == "Added water to Groceries.")
+    }
+
     @Test func pairingPollsUntilApproved() async throws {
         var polls = 0
         StubProtocol.handler = { req in

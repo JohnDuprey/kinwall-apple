@@ -174,9 +174,10 @@ struct AddToListIntent: AppIntent {
         }
         guard let kinwall else { return .result(dialog: IntentDialog(stringLiteral: demoAdd(item))) }
         // "Added" only once the server hands the item back (KinwallClient.addItem).
-        let added = try await explained { try await kinwall.addItem(item, to: target.id) }
+        // Not a second copy of what's already there (an open one is left, a ticked one unticked).
+        let added = try await explained { try await kinwall.addItem(item, to: target.id, skipExisting: true) }
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(dialog: "Added \(added.title) to \(target.name).")
+        return .result(dialog: IntentDialog(stringLiteral: added.addedLine(to: target.name)))
     }
 }
 
@@ -192,9 +193,9 @@ struct AddGroceryIntent: AppIntent {
         let kinwall = try family()
         guard let list = defaultList(try await kinwall?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
         guard let kinwall else { return .result(dialog: IntentDialog(stringLiteral: demoAdd(item.name))) }
-        try await explained { _ = try await kinwall.addItem(item.id, to: list.id) }
+        let added = try await explained { try await kinwall.addItem(item.id, to: list.id, skipExisting: true) }
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(dialog: "Added \(item.name) to \(list.name).")
+        return .result(dialog: IntentDialog(stringLiteral: added.addedLine(to: list.name)))
     }
 }
 

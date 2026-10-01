@@ -87,8 +87,12 @@ public struct KinwallClient: Sendable {
     }
     /// One item, for Siri: returns it only once the server answered with it on that list, so the
     /// caller never says "Added" for a write that didn't happen (an empty or other-list answer).
-    public func addItem(_ title: String, to listId: String) async throws -> ListItem {
-        guard let item = try await addItems([title], to: listId).first(where: { $0.listId == listId }) else { throw APIError.notSaved }
+    /// `skipExisting` (Siri): a name already on the list comes back instead of a second copy, with
+    /// `existing` "open", or "reopened" when it was ticked (servers from 2026-09-30 on; older ones add).
+    public func addItem(_ title: String, to listId: String, skipExisting: Bool = false) async throws -> ListItem {
+        let query = skipExisting ? [URLQueryItem(name: "skipExisting", value: "1")] : []
+        let added: [ListItem] = try await send("POST", "api/lists/\(listId)/items", query: query, body: [NewItem(title: title)])
+        guard let item = added.first(where: { $0.listId == listId }) else { throw APIError.notSaved }
         return item
     }
     /// The groceries catalog: every item name the family has added before (GET /api/lists/remembered).

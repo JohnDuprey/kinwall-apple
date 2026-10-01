@@ -77,6 +77,17 @@ public struct ListItem: Codable, Identifiable, Hashable, Sendable {
     public let dueDate: String?
     public let priority: String?
     public let done: Bool
+    /// Only from an add with skipExisting: "open" (it was already there) or "reopened" (unticked).
+    public var existing: String? = nil
+
+    /// What Siri says after an add.
+    public func addedLine(to list: String) -> String {
+        switch existing {
+        case "open": "\(title) is already on \(list)."
+        case "reopened": "Added \(title) back to \(list)."
+        default: "Added \(title) to \(list)."
+        }
+    }
 }
 
 /// GET /api/lists/{id}: the list and its items (in the list's own sort order).
