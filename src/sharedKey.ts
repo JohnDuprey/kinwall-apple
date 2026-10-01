@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import KinwallNative from '../modules/kinwall-native'
-import { type Connection, createDeviceKey, revokeOwnKey } from './api'
+import { type Connection, createDeviceKey, revokeOwnKey, widgetKeyFits } from './api'
 
 // The widgets' and the Watch's own everyday-access keys (docs/WIDGETS-AND-WATCH.md): minted once
 // per server with whatever key the app is signed in with, revoked on sign-out. Never the app's
@@ -30,12 +30,16 @@ export const widgetConnection = () => load(WIDGETS)
 export const shareKey = (c: Connection | null) =>
   KinwallNative?.keychainSet('family.kinwall.share', true, c && JSON.stringify(c)).catch(() => {})
 
-/** Once the page is signed in, make sure the widgets have their key for this server. */
+/** Once the page is signed in, make sure the widgets (and Siri) have a key for this family:
+ * a new one when the saved one is for another server or household, or was revoked. */
 export async function ensureWidgetKey(baseURL: string, key: string): Promise<void> {
-  if ((await load(WIDGETS))?.baseURL === baseURL) return
+  const saved = await load(WIDGETS)
+  if (await widgetKeyFits(saved, { baseURL, key })) return
   const device = Platform.OS === 'ios' ? (Platform.isPad ? 'iPad' : 'iPhone') : 'Android'
   const minted = await createDeviceKey(baseURL, key, `Widgets on ${device}`).catch(() => null)
-  if (minted) await save(WIDGETS, { baseURL, key: minted.key })
+  if (!minted) return
+  if (saved) await revokeOwnKey(saved).catch(() => {}) // the other family's key, while it still works
+  await save(WIDGETS, { baseURL, key: minted.key })
 }
 
 export async function revokeWidgetKey(): Promise<void> {
@@ -50,7 +54,7 @@ export async function syncWatch(): Promise<void> {
   const widgets = await load(WIDGETS)
   if (!widgets) return
   let watch = await load(WATCH)
-  if (watch?.baseURL !== widgets.baseURL) {
+  if (!watch || !(await widgetKeyFits(watch, widgets))) { // the Watch's key goes with the widgets' (the server deletes it with them)
     const minted = await createDeviceKey(widgets.baseURL, widgets.key, 'Apple Watch').catch(() => null)
     if (!minted) return
     watch = { baseURL: widgets.baseURL, key: minted.key }

@@ -7,7 +7,8 @@ import type { FamilyList, ListDetail } from './widgetData'
 export type Connection = { baseURL: string; key: string }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message) }
+  status: number
+  constructor(status: number, message: string) { super(message); this.status = status } // no parameter property: node runs this file in its tests
 }
 
 export type EventInstance = {
@@ -50,7 +51,20 @@ export async function isKinwall(baseURL: string): Promise<boolean> {
 export const events = (c: Connection, from: Date, to: Date) =>
   api<EventInstance[]>(c.baseURL, c.key, 'GET', `api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
 /** This key's owner: a member id on a person's own device, else "shared" or null. */
-export const me = (c: Connection) => api<{ scope: string; owner: string | null }>(c.baseURL, c.key, 'GET', 'api/me')
+/** `householdId`: the same for every key to one family (servers from 2026-09-30 on). */
+export const me = (c: Connection) => api<{ scope: string; owner: string | null; householdId?: string }>(c.baseURL, c.key, 'GET', 'api/me')
+
+/** Does the saved widgets key still open the family the app is signed in to? Not when it's for
+ * another server, has been revoked (401), or opens another household there (a key left over from
+ * one family let Siri add to the wrong one). Can't tell (offline, an older server): keep it. */
+export async function widgetKeyFits(saved: Connection | null, signedIn: Connection): Promise<boolean> {
+  if (!saved || saved.baseURL !== signedIn.baseURL) return false
+  const [widgets, app] = await Promise.all([me(saved), me(signedIn)].map((p) => p.catch((e: unknown) => e)))
+  if (widgets instanceof ApiError && widgets.status === 401) return false
+  if (widgets instanceof Error || app instanceof Error) return true
+  const a = (widgets as Awaited<ReturnType<typeof me>>).householdId, b = (app as Awaited<ReturnType<typeof me>>).householdId
+  return !a || !b || a === b
+}
 export const medicationDay = (c: Connection, memberId: string) =>
   api<MedicationDay>(c.baseURL, c.key, 'GET', `api/members/${encodeURIComponent(memberId)}/medications?days=1`)
 export const choresOn = (c: Connection, date: string) => api<ChoreDay[]>(c.baseURL, c.key, 'GET', `api/chores/day?date=${date}`)

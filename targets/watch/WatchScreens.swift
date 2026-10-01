@@ -276,11 +276,13 @@ struct ListItemsView: View {
     let list: FamilyList
     @State private var items: [ListItem] = []
     @State private var newItem = ""
+    @State private var addError: String?
 
     var body: some View {
         List {
             TextField("Add an item", text: $newItem) // dictation or Scribble
                 .onSubmit { Task { await add() } }
+            if let addError { Text(addError).font(.footnote).foregroundStyle(.red) }
             ForEach(items.sorted { !$0.done && $1.done }) { item in
                 Button {
                     Task { await toggle(item) }
@@ -307,7 +309,14 @@ struct ListItemsView: View {
         let title = newItem.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         newItem = ""
-        _ = try? await client.addItems([title], to: list.id)
+        do {
+            _ = try await client.addItem(title, to: list.id) // only once the server hands it back
+            addError = nil
+        } catch {
+            newItem = title // kept, to try again
+            addError = (error as? LocalizedError)?.errorDescription ?? "Couldn't add \(title)."
+            WKHaptic.play(.failure)
+        }
         await load()
     }
 
