@@ -20,7 +20,12 @@
           "NSAllowsArbitraryLoadsInWebContent": true
         },
         "NSSupportsLiveActivities": true,
-        "NSAlarmKitUsageDescription": "Kinwall rings your cooking timers when they're done, even on silent."
+        "NSAlarmKitUsageDescription": "Kinwall rings your cooking timers when they're done, even on silent.",
+      "CFBundleSpokenName": "Kin Wall",
+      "INAlternativeAppNames": [
+        { "INAlternativeAppName": "Kin Wall", "INAlternativeAppNamePronunciationHint": "kin wall" },
+        { "INAlternativeAppName": "Kinwall app", "INAlternativeAppNamePronunciationHint": "kin wall app" }
+      ]
       },
       "entitlements": {
         "keychain-access-groups": [
