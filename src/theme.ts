@@ -6,9 +6,10 @@ import { type Appearance, parseAppearance } from './appearance'
 
 // The native screens (address, sign-in, can't reach) in Kinwall's own colors, light and dark, the
 // same tokens the web app's default scheme uses, so the frame matches what loads inside it.
-// Eucalyptus (web/src/skins.ts); buttons carry white text on the light accent (6.3:1), dark ink on the dark one (8.3:1).
-const LIGHT = { bg: '#EAF2EF', field: '#F9FCFB', text: '#13262A', dim: '#455F62', border: '#B6CDC4', accent: '#1F6B63', ink: '#FFFFFF', problem: '#B3261E' }
-const DARK = { bg: '#0E1A1A', field: '#1A2D2C', text: '#E3EEEC', dim: '#9EB9B6', border: '#3E5D5B', accent: '#5CC2B3', ink: '#0E1A1A', problem: '#FF8A80' }
+// Peacock (web/src/skins.ts); buttons carry white text on the fill: the light accent (12.2:1), and in
+// dark the web app's deepened fill (accentFill, 4.6:1), with the sky-blue accent kept for the cursor.
+const LIGHT = { bg: '#EEF3F8', field: '#FAFCFE', text: '#102A43', dim: '#4A6078', border: '#B8CBDD', accent: '#123857', fill: '#123857', ink: '#FFFFFF', problem: '#B3261E' }
+const DARK = { bg: '#0B1622', field: '#16273A', text: '#E4ECF5', dim: '#9DB2C8', border: '#395677', accent: '#6CB4EE', fill: '#497AA2', ink: '#FFFFFF', problem: '#FF8A80' }
 export type Palette = typeof LIGHT
 
 const make = (c: Palette) => StyleSheet.create({
@@ -18,7 +19,7 @@ const make = (c: Palette) => StyleSheet.create({
   muted: { color: c.dim, textAlign: 'center', fontSize: 16, lineHeight: 22 },
   footnote: { fontSize: 14, lineHeight: 20 },
   input: { padding: 14, borderRadius: 14, backgroundColor: c.field, borderWidth: 1.5, borderColor: c.border, color: c.text, fontSize: 17 },
-  button: { backgroundColor: c.accent, padding: 14, borderRadius: 12, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
+  button: { backgroundColor: c.fill, padding: 14, borderRadius: 12, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
   buttonText: { color: c.ink, fontSize: 17, fontWeight: '600' },
   // Disabled keeps readable text: the field's color with a border, not a faded accent.
   disabled: { backgroundColor: c.field, borderWidth: 1.5, borderColor: c.border },

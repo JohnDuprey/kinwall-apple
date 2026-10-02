@@ -345,7 +345,7 @@ object Countdowns {
     else -> null
   }
 
-  private fun accent(c: Context) = colors(c)?.optString("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.parseColor("#1F6B63")
+  private fun accent(c: Context) = colors(c)?.optString("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.parseColor("#123857")
 
   private fun colors(c: Context) = prefs(c).getString("colors", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
 

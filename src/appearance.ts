@@ -34,10 +34,10 @@ export function frameColors(a: Appearance | null, systemDark: boolean): (Surface
 /** The colors sent with a Live Activity: the frame's background with Kinwall's text and accent for
  * light or dark; null for Kinwall's own. Only the accent is used now (the cooking alarm's tint on
  * iOS, Android's countdown notification color): the activity itself draws on the system's
- * background with Kinwall's blue-green as an accent (targets/widgets/LiveActivities.swift). */
+ * background with Kinwall's blue as an accent (targets/widgets/LiveActivities.swift). */
 export function activityColors(frame: (Surface & { dark: boolean }) | null): { bg: string; fg: string; accent: string } | null {
   if (!frame) return null
-  return frame.dark ? { bg: frame.bg, fg: '#E3EEEC', accent: '#5CC2B3' } : { bg: frame.bg, fg: '#13262A', accent: '#1F6B63' }
+  return frame.dark ? { bg: frame.bg, fg: '#E4ECF5', accent: '#6CB4EE' } : { bg: frame.bg, fg: '#102A43', accent: '#123857' }
 }
 
 /** The Android widgets' colors (src/widgets.tsx): the family's surfaces with Kinwall's text and
@@ -45,8 +45,8 @@ export function activityColors(frame: (Surface & { dark: boolean }) | null): { b
  * sent any. `systemDark`: the representation Android asks for (its dark theme on or off). */
 type Hex = `#${string}`
 export type WidgetPalette = { bg: Hex; card: Hex; fg: Hex; dim: Hex; accent: Hex }
-const LIGHT: WidgetPalette = { bg: '#EAF2EF', card: '#F9FCFB', fg: '#13262A', dim: '#455F62', accent: '#1F6B63' }
-const DARK: WidgetPalette = { bg: '#0E1A1A', card: '#1A2D2C', fg: '#E3EEEC', dim: '#9EB9B6', accent: '#5CC2B3' }
+const LIGHT: WidgetPalette = { bg: '#EEF3F8', card: '#FAFCFE', fg: '#102A43', dim: '#4A6078', accent: '#123857' }
+const DARK: WidgetPalette = { bg: '#0B1622', card: '#16273A', fg: '#E4ECF5', dim: '#9DB2C8', accent: '#6CB4EE' }
 export function widgetPalette(a: Appearance | null, systemDark: boolean): WidgetPalette {
   const f = frameColors(a, systemDark)
   const base = (f ? f.dark : systemDark) ? DARK : LIGHT
