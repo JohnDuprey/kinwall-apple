@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kinwall",
     "slug": "kinwall",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "family.kinwall.app",
     "icon": "./assets/icon.png",
     "orientation": "default",
@@ -26,11 +26,17 @@
         },
         "NSSupportsLiveActivities": true,
         "NSAlarmKitUsageDescription": "Kinwall rings your cooking timers when they're done, even on silent.",
-      "CFBundleSpokenName": "Kin Wall",
-      "INAlternativeAppNames": [
-        { "INAlternativeAppName": "Kin Wall", "INAlternativeAppNamePronunciationHint": "kin wall" },
-        { "INAlternativeAppName": "Kinwall app", "INAlternativeAppNamePronunciationHint": "kin wall app" }
-      ]
+        "CFBundleSpokenName": "Kin Wall",
+        "INAlternativeAppNames": [
+          {
+            "INAlternativeAppName": "Kin Wall",
+            "INAlternativeAppNamePronunciationHint": "kin wall"
+          },
+          {
+            "INAlternativeAppName": "Kinwall app",
+            "INAlternativeAppNamePronunciationHint": "kin wall app"
+          }
+        ]
       },
       "entitlements": {
         "keychain-access-groups": [
