@@ -65,6 +65,14 @@ private func ev(_ id: String, _ title: String, _ start: String, _ end: String, a
         #expect(s.on.contacts, "not a boolean: on")
         #expect(s.rewardsEnabled == false)
     }
+
+    @Test func medicinesNeedRemindersAndHealth() throws {
+        #expect(try settings(#"{"familyName":"F","weekStart":0}"#).medicinesOn, "an older server: on (its routes 404 when off)")
+        #expect(try settings(#"{"familyName":"F","weekStart":0,"medications":true}"#).medicinesOn)
+        #expect(try !settings(#"{"familyName":"F","weekStart":0,"medications":false}"#).medicinesOn)
+        #expect(try !settings(#"{"familyName":"F","weekStart":0,"medications":true,"features":{"trackersHealth":false}}"#).medicinesOn)
+        #expect(try !settings(#"{"familyName":"F","weekStart":0,"features":{"checkIns":false}}"#).on.checkIns)
+    }
 }
 
 @Suite struct TransitionWarningTests {

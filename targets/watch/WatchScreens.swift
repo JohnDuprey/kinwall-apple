@@ -151,11 +151,14 @@ struct CheckInView: View {
     @State private var person: String?
     @State private var check: TempCheck?
     @State private var shared = false
+    @State private var off = false // the family turned check-ins off
 
     var body: some View {
         NavigationStack {
             List {
-                if shared {
+                if off {
+                    Text("Check-ins are turned off in Kinwall.").foregroundStyle(.secondary)
+                } else if shared {
                     Text("Check-in is only on a person's own Watch.").foregroundStyle(.secondary)
                 } else if let check, let person {
                     switch check.step {
@@ -185,6 +188,8 @@ struct CheckInView: View {
     }
 
     private func load() async {
+        off = await !client.features().checkIns
+        if off { return }
         guard let me = try? await client.me() else { return }
         guard let id = me.person else { shared = true; return }
         person = id
@@ -200,11 +205,14 @@ struct MedsView: View {
     let client: KinwallClient
     @State private var due: DueDoses?
     @State private var members: [Member] = []
+    @State private var off = false // medicines off (reminders off, or the Health tracker off)
 
     var body: some View {
         NavigationStack {
             List {
-                if let due {
+                if off {
+                    Text("Medicine is turned off in Kinwall.").foregroundStyle(.secondary)
+                } else if let due {
                     if due.doses.isEmpty { Text("Nothing due right now").foregroundStyle(.secondary) }
                     ForEach(due.doses) { d in
                         VStack(alignment: .leading, spacing: 6) {
@@ -234,6 +242,8 @@ struct MedsView: View {
     }
 
     private func load() async {
+        off = await !client.medicinesOn()
+        if off { return }
         async let d = client.dueDoses()
         async let m = client.members()
         due = (try? await d) ?? DueDoses(names: false, doses: []) // 404: the family has medicines off

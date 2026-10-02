@@ -34,6 +34,11 @@ export function choreTap(c: ChoreDay, person: string | null): ChoreTap {
   return { tick: true, memberId: c.memberId == null ? person : null }
 }
 
+/** Medicines show only with medication reminders on and the Health tracker on (as the server
+ * decides); a setting that's missing (older servers, offline) counts as on. */
+export const medicinesOn = (s: { features?: Partial<Record<string, boolean>>; medications?: boolean }) =>
+  s.medications !== false && s.features?.trackersHealth !== false
+
 /** Take now says how many, never which: "Medicine" is all a Home Screen shows. */
 export const takeNowText = (due: number) => (due === 0 ? 'Nothing due now' : `${due} due now`)
 

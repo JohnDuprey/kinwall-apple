@@ -33,7 +33,7 @@ struct BoardEntry: TimelineEntry {
     var demo = false
     /// The family turned chores off (the board then has none).
     var choresOff = false
-    enum Problem { case signedOut, offline, choresOff, listsOff }
+    enum Problem { case signedOut, offline, choresOff, listsOff, checkInsOff, medicineOff }
 
     var nowNext: (now: BoardEvent?, next: BoardEvent?) { board?.nowAndNext(at: date) ?? (nil, nil) }
     var todayEvents: [BoardEvent] {
@@ -122,6 +122,8 @@ struct ProblemView: View {
         case .offline: ("wifi.slash", "Can't reach Kinwall right now")
         case .choresOff: ("moon.zzz", "Chores are turned off in Kinwall")
         case .listsOff: ("moon.zzz", "Lists are turned off in Kinwall")
+        case .checkInsOff: ("moon.zzz", "Check-ins are turned off in Kinwall")
+        case .medicineOff: ("moon.zzz", "Medicine is turned off in Kinwall")
         }
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: icon).foregroundStyle(.secondary)

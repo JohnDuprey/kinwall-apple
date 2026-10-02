@@ -72,8 +72,10 @@ export const board = (c: Connection, days = 1) => api<Board>(c.baseURL, c.key, '
 /** The family's feature switches (GET /api/settings `features`, Settings → Features in Kinwall):
  * one that's missing (older servers, or offline: {}) counts as on, so test with `=== false`. */
 export type Features = Partial<Record<string, boolean>>
-export const features = (c: Connection) =>
-  api<{ features?: Features }>(c.baseURL, c.key, 'GET', 'api/settings').then((s) => s?.features ?? {}, (): Features => ({}))
+/** The slice of GET /api/settings the widgets read; {} offline. */
+export type Settings = { features?: Features; medications?: boolean }
+export const settings = (c: Connection) => api<Settings>(c.baseURL, c.key, 'GET', 'api/settings').then((s) => s ?? {}, (): Settings => ({}))
+export const features = (c: Connection) => settings(c).then((s) => s.features ?? {})
 export const members = (c: Connection) => api<{ id: string; name: string; avatar?: string | null }[]>(c.baseURL, c.key, 'GET', 'api/members')
 /** memberId: who gets the points for an Anyone chore; the key's own person otherwise. */
 export const completeChore = (c: Connection, id: string, date: string, memberId: string | null) =>

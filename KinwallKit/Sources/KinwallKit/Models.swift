@@ -24,8 +24,13 @@ public struct Settings: Codable, Hashable, Sendable {
     public var features: Features? = nil
     /// Rewards (spending points); nil from older servers (on).
     public var rewardsEnabled: Bool? = nil
+    /// Medication reminders, as the server has it (already off with Health turned off); nil from
+    /// servers that don't send it (their medicine routes answer 404 when off).
+    public var medications: Bool? = nil
     /// The switches to go by: all on when the server sent none.
     public var on: Features { features ?? Features() }
+    /// Medicines show only with medication reminders on and the Health tracker on, as on the server.
+    public var medicinesOn: Bool { medications != false && on.trackersHealth }
 }
 
 /// What a family turned on or off in Kinwall's settings (GET /api/settings `features`). A switch

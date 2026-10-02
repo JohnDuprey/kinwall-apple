@@ -15,10 +15,14 @@ enum Owner {
     case person(KinwallClient, String)
     case demo
     case shared, signedOut, offline
+    /// The family turned check-ins off (Settings → Features), which takes the battery with them.
+    case checkInsOff
 
     static func current() async -> Owner {
         guard let client = try? widgetClient() else { return Demo.isOn ? .demo : .signedOut }
+        async let features = client.features()
         guard let me = try? await client.me() else { return .offline }
+        if await !features.checkIns { return .checkInsOff }
         return me.person.map { .person(client, $0) } ?? .shared
     }
 }
@@ -33,6 +37,7 @@ struct OwnerProblemView: View {
                 Text("Only on a person's own device").font(.caption.weight(.semibold))
                 Text("Set who uses this iPhone in Kinwall under Settings → Access.").font(.caption2).foregroundStyle(.secondary)
             case .offline: ProblemView(problem: .offline)
+            case .checkInsOff: ProblemView(problem: .checkInsOff)
             default: ProblemView(problem: .signedOut)
             }
         }
@@ -202,6 +207,7 @@ struct BatteryEntry: TimelineEntry {
     let battery: Battery?
     var hidden = FocusSettings.current()?.hideHealth == true
     var demo: Bool { if case .demo = owner { true } else { false } }
+    var checkInsOff: Bool { if case .checkInsOff = owner { true } else { false } }
 }
 
 struct BatteryProvider: TimelineProvider {
@@ -245,7 +251,7 @@ struct BatteryView: View {
         let summary = entry.battery?.summary
         if family == .accessoryCircular {
             // The Lock Screen shows the gauge only: no reasons, no name, nothing to read over a shoulder.
-            Gauge(value: Double(summary?.level ?? 0), in: 0...100) { Image(systemName: "bolt.fill") } currentValueLabel: { Text(summary.map { "\($0.level)" } ?? "–") }
+            Gauge(value: Double(summary?.level ?? 0), in: 0...100) { Image(systemName: "bolt.fill") } currentValueLabel: { Text(summary.map { "\($0.level)" } ?? (entry.checkInsOff ? "Off" : "–")) }
                 .gaugeStyle(.accessoryCircularCapacity).privacySensitive()
         } else if let summary {
             VStack(alignment: .leading, spacing: 6) {

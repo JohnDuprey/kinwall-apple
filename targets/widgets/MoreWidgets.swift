@@ -15,6 +15,8 @@ struct DosesEntry: TimelineEntry {
     let showNames: Bool
     var signedOut = false
     var demo = false
+    /// The family has medicines off (reminders off, or the Health tracker off).
+    var off = false
     var hidden = FocusSettings.current()?.hideHealth == true
     /// Smart Stack: up top while a dose is due (never while hidden by a Focus).
     var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: doses.isEmpty || hidden ? 0 : 100) }
@@ -46,8 +48,10 @@ struct DosesProvider: AppIntentTimelineProvider {
             return Demo.isOn ? DosesEntry(date: .now, doses: DemoFamily.dueDoses().doses, members: DemoFamily.members, showNames: false, demo: true)
                 : DosesEntry(date: .now, doses: [], members: [], showNames: false, signedOut: true)
         }
-        async let due = client.dueDoses() // 404 while the family has medicines off: nothing due
+        async let on = client.medicinesOn()
+        async let due = client.dueDoses() // 404 while the family has medicines off
         async let members = client.members()
+        if await !on { return DosesEntry(date: .now, doses: [], members: [], showNames: false, off: true) }
         let d = try? await due
         return DosesEntry(date: .now, doses: d?.doses ?? [], members: (try? await members) ?? [], showNames: config.showNames && d?.names == true)
     }
@@ -72,13 +76,13 @@ struct TakeNowView: View {
         let first = entry.doses.first
         switch family {
         case .accessoryInline:
-            Text(first.map { "💊 \(entry.who($0)) · take now" } ?? "💊 Nothing due")
+            Text(first.map { "💊 \(entry.who($0)) · take now" } ?? (entry.off ? "💊 Off" : "💊 Nothing due"))
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
                     Image(systemName: "pills.fill").font(.caption)
-                    Text("\(entry.doses.count)").font(.title3.weight(.bold)).widgetAccentable()
+                    Text(entry.off ? "Off" : "\(entry.doses.count)").font(entry.off ? .caption.weight(.bold) : .title3.weight(.bold)).widgetAccentable()
                 }
             }
         case .accessoryRectangular:
@@ -89,12 +93,12 @@ struct TakeNowView: View {
                     Text(entry.doses.count > 1 ? "\(entry.what(first)) · +\(entry.doses.count - 1) more" : entry.what(first)).font(.caption).lineLimit(1).privacySensitive()
                 } else {
                     Text("💊 Take now").font(.caption.weight(.semibold))
-                    Text(entry.signedOut ? "Open Kinwall to sign in" : "Nothing due").font(.headline)
+                    Text(entry.signedOut ? "Open Kinwall to sign in" : entry.off ? "Turned off in Kinwall" : "Nothing due").font(.headline)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
-            if entry.signedOut { ProblemView(problem: .signedOut) } else {
+            if entry.signedOut { ProblemView(problem: .signedOut) } else if entry.off { ProblemView(problem: .medicineOff) } else {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("💊 TAKE NOW").font(.caption.weight(.heavy)).foregroundStyle(Palette.accent)
                     if let first {

@@ -1,7 +1,7 @@
 // node --test test/ (npm test). The Android widgets' rows and taps.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { type FamilyList, choreRows, choreTap, pickGroceries, takeNowText } from '../src/widgetData.ts'
+import { type FamilyList, choreRows, choreTap, medicinesOn, pickGroceries, takeNowText } from '../src/widgetData.ts'
 import type { ChoreDay } from '../src/reminderPlans.ts'
 
 const list = (id: string, name: string, kind: FamilyList['kind'], archived = false, catalog?: FamilyList['catalog']): FamilyList => ({ id, name, kind, catalog, archived, openCount: 0 })
@@ -47,4 +47,11 @@ test('choreTap: ticks where it can, opens the app where it needs more', () => {
 test('takeNowText: a count, never a name', () => {
   assert.equal(takeNowText(0), 'Nothing due now')
   assert.equal(takeNowText(2), '2 due now')
+})
+
+test('medicinesOn: medication reminders and the Health tracker both on; missing counts as on', () => {
+  assert.equal(medicinesOn({}), true, 'an older server, or offline')
+  assert.equal(medicinesOn({ medications: true, features: { chores: false } }), true)
+  assert.equal(medicinesOn({ medications: false }), false)
+  assert.equal(medicinesOn({ medications: true, features: { trackersHealth: false } }), false)
 })

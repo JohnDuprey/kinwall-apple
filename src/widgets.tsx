@@ -6,11 +6,11 @@ import {
   FlexWidget, ListWidget, TextWidget, registerWidgetConfigurationScreen, registerWidgetTaskHandler,
   type WidgetConfigurationScreenProps, type WidgetRepresentation, type WidgetTaskHandlerProps,
 } from 'react-native-android-widget'
-import { type Board, type Connection, board, choresOn, completeChore, dueDoses, features, list, lists, me, members, nowAndNext, setItemDone } from './api'
+import { type Board, type Connection, board, choresOn, completeChore, dueDoses, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
 import { type WidgetPalette, widgetPalette } from './appearance'
 import { savedAppearance, useUi } from './theme'
 import { widgetConnection } from './sharedKey'
-import { DEMO_CHORES, DEMO_GROCERIES, DEMO_PEOPLE, type ListDetail, choreRows, choreTap, pickGroceries, takeNowText } from './widgetData'
+import { DEMO_CHORES, DEMO_GROCERIES, DEMO_PEOPLE, type ListDetail, choreRows, choreTap, medicinesOn, pickGroceries, takeNowText } from './widgetData'
 import type { ChoreDay } from './reminderPlans'
 import KinwallNative from '../modules/kinwall-native'
 
@@ -170,6 +170,7 @@ const OFFLINE = "Can't reach Kinwall right now"
 const SIGNED_OUT = 'Open Kinwall to sign in'
 const CHORES_OFF = 'Chores are turned off in Kinwall'
 const LISTS_OFF = 'Lists are turned off in Kinwall'
+const MEDICINE_OFF = 'Medicine is turned off in Kinwall'
 const ownPerson = (c: Connection) => me(c).then((m) => (m.owner && m.owner !== 'shared' ? m.owner : null)).catch(() => null)
 
 /** Fetches once; draws with either palette. */
@@ -200,7 +201,8 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     case 'TakeNow': {
       if (demo) return (p) => <TakeNow p={p} due={1} />
       if (!c) return (p) => <TakeNow p={p} due={null} problem={SIGNED_OUT} />
-      // The medicines feature off (404): nothing due.
+      if (!medicinesOn(await settings(c))) return (p) => <TakeNow p={p} due={null} problem={MEDICINE_OFF} />
+      // An older server with medicines off (404): nothing due.
       const due = await dueDoses(c).then((r) => r.doses.length, (e) => (e?.status === 404 ? 0 : null))
       return (p) => <TakeNow p={p} due={due} problem={due == null ? OFFLINE : undefined} />
     }

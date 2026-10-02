@@ -137,6 +137,8 @@ struct ChoresLeftComplication: Widget {
 /// How many doses are due now, never which medicines: a watch face is on show.
 struct MedsEntry: TimelineEntry {
     let date: Date; let count: Int?
+    /// The family has medicines off (reminders off, or the Health tracker off).
+    var off = false
     /// The Smart Stack: up top while a dose is due.
     var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: (count ?? 0) > 0 ? 100 : 0) }
 }
@@ -148,8 +150,13 @@ struct MedsProvider: TimelineProvider {
         nonisolated(unsafe) let completion = completion
         Task {
             var count: Int?
-            if let connection = try? SharedKeychain.widgetStore.load() { count = (try? await KinwallClient(connection).dueDoses())?.doses.count ?? 0 }
-            completion(Timeline(entries: [MedsEntry(date: .now, count: count)], policy: .after(.now.addingTimeInterval(15 * 60))))
+            var off = false
+            if let connection = try? SharedKeychain.widgetStore.load() {
+                let client = KinwallClient(connection)
+                off = await !client.medicinesOn()
+                if !off { count = (try? await client.dueDoses())?.doses.count ?? 0 }
+            }
+            completion(Timeline(entries: [MedsEntry(date: .now, count: count, off: off)], policy: .after(.now.addingTimeInterval(15 * 60))))
         }
     }
 }
@@ -171,14 +178,14 @@ struct MedsDueView: View {
     var body: some View {
         let n = entry.count ?? 0
         switch family {
-        case .accessoryInline: Text(n == 0 ? "💊 Nothing due" : "💊 \(n) due")
-        case .accessoryCorner: Image(systemName: "pills.fill").widgetLabel { Text(n == 0 ? "None due" : "\(n) due") }
+        case .accessoryInline: Text(entry.off ? "💊 Off" : n == 0 ? "💊 Nothing due" : "💊 \(n) due")
+        case .accessoryCorner: Image(systemName: "pills.fill").widgetLabel { Text(entry.off ? "Off" : n == 0 ? "None due" : "\(n) due") }
         default:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
                     Image(systemName: "pills.fill").font(.caption)
-                    Text(entry.count == nil ? "–" : "\(n)").font(.title3.weight(.bold)).widgetAccentable()
+                    Text(entry.off ? "Off" : entry.count == nil ? "–" : "\(n)").font(entry.off ? .caption.weight(.bold) : .title3.weight(.bold)).widgetAccentable()
                 }
             }
         }
@@ -189,7 +196,11 @@ struct MedsDueView: View {
 
 /// The owner's energy battery as a gauge only: no reasons, no name (a watch face is on show).
 /// Only on a person's own Watch; the server refuses anyone else.
-struct BatteryLevelEntry: TimelineEntry { let date: Date; let level: Int? }
+struct BatteryLevelEntry: TimelineEntry {
+    let date: Date; let level: Int?
+    /// The family turned check-ins off (the battery comes from them).
+    var off = false
+}
 
 struct BatteryLevelProvider: TimelineProvider {
     func placeholder(in context: Context) -> BatteryLevelEntry { BatteryLevelEntry(date: .now, level: 62) }
@@ -198,11 +209,13 @@ struct BatteryLevelProvider: TimelineProvider {
         nonisolated(unsafe) let completion = completion
         Task {
             var level: Int?
+            var off = false
             if let connection = try? SharedKeychain.widgetStore.load() {
                 let client = KinwallClient(connection)
-                if let person = try? await client.me().person { level = (try? await client.battery(person))?.summary?.level }
+                off = await !client.features().checkIns
+                if !off, let person = try? await client.me().person { level = (try? await client.battery(person))?.summary?.level }
             }
-            completion(Timeline(entries: [BatteryLevelEntry(date: .now, level: level)], policy: .after(.now.addingTimeInterval(3 * 3600))))
+            completion(Timeline(entries: [BatteryLevelEntry(date: .now, level: level, off: off)], policy: .after(.now.addingTimeInterval(3 * 3600))))
         }
     }
 }
@@ -210,7 +223,7 @@ struct BatteryLevelProvider: TimelineProvider {
 struct BatteryComplication: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "Battery", provider: BatteryLevelProvider()) { entry in
-            Gauge(value: Double(entry.level ?? 0), in: 0...100) { Image(systemName: "bolt.fill") } currentValueLabel: { Text(entry.level.map { "\($0)" } ?? "–") }
+            Gauge(value: Double(entry.level ?? 0), in: 0...100) { Image(systemName: "bolt.fill") } currentValueLabel: { Text(entry.level.map { "\($0)" } ?? (entry.off ? "Off" : "–")) }
                 .gaugeStyle(.accessoryCircularCapacity)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
