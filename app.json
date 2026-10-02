@@ -146,6 +146,14 @@
       "./plugins/withKinwallNative",
       "expo-secure-store",
       "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kinwall uses the camera to scan barcodes, like a book's ISBN.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-background-task",
       [
         "expo-notifications",

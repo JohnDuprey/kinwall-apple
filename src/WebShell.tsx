@@ -20,6 +20,8 @@ import KinwallNative from '../modules/kinwall-native'
 import * as Crypto from 'expo-crypto'
 import { bridgeMessage, sameOrigin } from './bridge'
 import { importContactsScript, meetCall } from './links'
+import { barcodeScript } from './barcode'
+import { Scanner } from './Scanner'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
 // (the GitHub app drops ?template=, so both Help forms landed on the same page). Maps and
@@ -48,7 +50,7 @@ const NONCE = Array.from(Crypto.getRandomValues(new Uint8Array(16)), (b) => b.to
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
 const bridge = (origin: string, token: string | null, frame: (Surface & { dark: boolean }) | null) => `
-window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, providerReturn: true, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)}, videoCall: ${JSON.stringify(Platform.OS === 'android')} };
+window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, providerReturn: true, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)}, videoCall: ${JSON.stringify(Platform.OS === 'android')}, barcodeScanner: true };
 ${token ? `if (location.origin === ${JSON.stringify(origin)}) try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
@@ -97,6 +99,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const [failed, setFailed] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [startsPairing, setStartsPairing] = useState<boolean | null>(null)
+  const [scanning, setScanning] = useState(false)
   const pending = useRef<string | null>(null)
   const canGoBack = useRef(false)
   const origin = new URL(url).origin
@@ -202,6 +205,8 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       case 'notificationSettings': KinwallNative?.openNotificationSettings?.(typeof m.channel === 'string' ? m.channel : null); break
       // Android 13+ (window.kinwallNative.quickSettingsTiles): offer the "groceries" or "night" tile.
       case 'addTile': if (typeof m.tile === 'string') KinwallNative?.addTile?.(m.tile).catch(() => {}); break
+      // web/src/native.ts (window.kinwallNative.barcodeScanner): the camera, for a book's ISBN; the answer is a 'kinwall:barcode' event.
+      case 'scanBarcode': setScanning(true); break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
         if (m.reason === 'rejected' && session.mode === 'oauth') {
@@ -269,17 +274,21 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     />
   )
 
+  const scanner = scanning && <Scanner onDone={(code) => { setScanning(false); web.current?.injectJavaScript(barcodeScript(code)) }} />
+
   // iOS: the page uses the full screen and drops its status-bar gap in the app (data-native).
   // Android: the page starts under the status bar; the insets are painted in the page's color.
   return Platform.OS === 'ios' ? (
     <View style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar hidden style={dark ? 'light' : 'dark'} />
       {view}
+      {scanner}
     </View>
   ) : (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       {view}
+      {scanner}
     </SafeAreaView>
   )
 }
