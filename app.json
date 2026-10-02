@@ -8,6 +8,11 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      },
       "bundleIdentifier": "family.kinwall.app",
       "buildNumber": "12",
       "supportsTablet": true,
@@ -119,8 +124,9 @@
       "package": "family.kinwall.app",
       "versionCode": 12,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#EAF2EF"
       },
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
@@ -158,7 +164,9 @@
       [
         "expo-notifications",
         {
-          "defaultChannel": "reminders"
+          "defaultChannel": "reminders",
+          "icon": "./assets/notification-icon.png",
+          "color": "#1F6B63"
         }
       ],
       [
@@ -226,8 +234,12 @@
             "backgroundColor": "#0E1A1A"
           },
           "android": {
-            "image": "./assets/icon.png",
-            "imageWidth": 120
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 120,
+            "dark": {
+              "image": "./assets/splash-icon-dark.png",
+              "backgroundColor": "#0E1A1A"
+            }
           }
         }
       ]
