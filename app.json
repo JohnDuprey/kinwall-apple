@@ -126,7 +126,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
-        "backgroundColor": "#EAF2EF"
+        "backgroundColor": "#EEF3F8"
       },
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
@@ -166,7 +166,7 @@
         {
           "defaultChannel": "reminders",
           "icon": "./assets/notification-icon.png",
-          "color": "#1F6B63"
+          "color": "#123857"
         }
       ],
       [
