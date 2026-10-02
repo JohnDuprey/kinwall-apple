@@ -10,3 +10,6 @@ export function cleanBarcode(data: string): string | null {
 /** Script for the page: the scanned digits, or null when the scanner was closed. */
 export const barcodeScript = (code: string | null) =>
   `window.dispatchEvent(new CustomEvent('kinwall:barcode', { detail: ${JSON.stringify(code)} })); true;`
+
+/** Which camera to open: the front one when the page asks (a wall tablet faces the room), else the back. */
+export const scanFacing = (m: { facing?: unknown }): 'front' | 'back' => (m.facing === 'front' ? 'front' : 'back')

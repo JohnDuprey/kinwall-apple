@@ -27,11 +27,12 @@ function beep() {
 
 /** Full-screen barcode scanner (the page's Scan buttons: Add a book, and shopping lists; web/src/native.ts): the first barcode it
  * reads, or null when closed. Asks for the camera the first time it opens. */
-export function Scanner({ onDone }: { onDone: (code: string | null) => void }) {
+export function Scanner({ facing: initialFacing, onDone }: { facing: 'front' | 'back'; onDone: (code: string | null) => void }) {
   const ui = useUi()
   const [permission, request] = useCameraPermissions()
   const done = useRef(false)
   const finish = (code: string | null) => { if (done.current) return; done.current = true; onDone(code) }
+  const [facing, setFacing] = useState(initialFacing) // the page's pick (front on a wall tablet); Flip switches
   const [sound, setSound] = useState(() => { try { return SecureStore.getItem(BEEP_KEY) !== 'off' } catch { return true } })
   const toggleSound = () => { const on = !sound; setSound(on); SecureStore.setItemAsync(BEEP_KEY, on ? 'on' : 'off').catch(() => {}) }
   const scanned = (code: string) => {
@@ -49,16 +50,21 @@ export function Scanner({ onDone }: { onDone: (code: string | null) => void }) {
         <View style={styles.root}>
           <CameraView
             style={StyleSheet.absoluteFill}
-            facing="back"
+            facing={facing}
             barcodeScannerSettings={{ barcodeTypes: [...TYPES] }}
             onBarcodeScanned={({ data }) => { const code = cleanBarcode(data); if (code) scanned(code) }}
           />
           <SafeAreaView style={styles.overlay}>
             <View style={styles.top}>
               <Text style={styles.hint} accessibilityRole="header">Point at the barcode</Text>
-              <Pressable style={styles.sound} onPress={toggleSound} accessibilityRole="switch" accessibilityState={{ checked: sound }} accessibilityLabel="Beep when scanned">
-                <Text style={styles.soundText}>{sound ? '🔊 Beep' : '🔇 Beep off'}</Text>
-              </Pressable>
+              <View style={styles.buttons}>
+                <Pressable style={styles.sound} onPress={toggleSound} accessibilityRole="switch" accessibilityState={{ checked: sound }} accessibilityLabel="Beep when scanned">
+                  <Text style={styles.soundText}>{sound ? '🔊 Beep' : '🔇 Beep off'}</Text>
+                </Pressable>
+                <Pressable style={styles.sound} onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} accessibilityRole="button" accessibilityLabel={facing === 'front' ? 'Use the back camera' : 'Use the front camera'}>
+                  <Text style={styles.soundText}>🔄 Flip</Text>
+                </Pressable>
+              </View>
             </View>
             <View style={styles.frame} accessible={false} />
             <Pressable style={styles.close} onPress={() => finish(null)} accessibilityRole="button">
@@ -88,6 +94,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'space-between', padding: 24 },
   top: { alignItems: 'center', gap: 12, marginTop: 24 },
+  buttons: { flexDirection: 'row', gap: 10 },
   hint: { color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center', textShadowColor: '#000', textShadowRadius: 6 },
   sound: { backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1.5, borderColor: '#fff', borderRadius: 22, minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   soundText: { color: '#fff', fontSize: 15, fontWeight: '600' },

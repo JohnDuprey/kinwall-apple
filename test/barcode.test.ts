@@ -1,7 +1,7 @@
 // node --test test/ (npm test). The barcode scanner's hand-off to the page (src/Scanner.tsx, src/WebShell.tsx).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { barcodeScript, cleanBarcode } from '../src/barcode.ts'
+import { barcodeScript, cleanBarcode, scanFacing } from '../src/barcode.ts'
 
 test('cleanBarcode: keeps product and book barcodes (EAN-8 to EAN-14), digits only', () => {
   assert.equal(cleanBarcode('9780064400558'), '9780064400558') // a book's ISBN-13
@@ -16,4 +16,10 @@ test('barcodeScript: tells the page what was scanned, or that it was closed', ()
   run(barcodeScript('9780064400558'))
   run(barcodeScript(null))
   assert.deepEqual(got, [['kinwall:barcode', '9780064400558'], ['kinwall:barcode', null]])
+})
+
+test('scanFacing: the front camera only when the page asks for it (a wall screen)', () => {
+  assert.equal(scanFacing({ type: 'scanBarcode', facing: 'front' }), 'front')
+  assert.equal(scanFacing({ type: 'scanBarcode' }), 'back')
+  assert.equal(scanFacing({ type: 'scanBarcode', facing: 'sideways' }), 'back')
 })

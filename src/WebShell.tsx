@@ -20,7 +20,7 @@ import KinwallNative from '../modules/kinwall-native'
 import * as Crypto from 'expo-crypto'
 import { bridgeMessage, sameOrigin } from './bridge'
 import { importContactsScript, meetCall } from './links'
-import { barcodeScript } from './barcode'
+import { barcodeScript, scanFacing } from './barcode'
 import { Scanner } from './Scanner'
 
 // Web pages open in an in-app browser: handing them to the system lets another app claim the link
@@ -99,7 +99,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const [failed, setFailed] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [startsPairing, setStartsPairing] = useState<boolean | null>(null)
-  const [scanning, setScanning] = useState(false)
+  const [scanning, setScanning] = useState<'front' | 'back' | null>(null) // the camera the scanner opens with
   const pending = useRef<string | null>(null)
   const canGoBack = useRef(false)
   const origin = new URL(url).origin
@@ -176,7 +176,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
   const syncKey = () => web.current?.injectJavaScript(`try { window.webkit.messageHandlers.kinwall.postMessage({ type: 'key', key: localStorage.getItem('kinwall.apiKey') }) } catch (e) {} true;`)
 
   const onMessage = async (e: WebViewMessageEvent) => {
-    const m = bridgeMessage(e.nativeEvent.data, NONCE, e.nativeEvent.url, url) as { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown; channel?: unknown; tile?: unknown } | null
+    const m = bridgeMessage(e.nativeEvent.data, NONCE, e.nativeEvent.url, url) as { type?: string; reason?: string; color?: string; key?: string | null; on?: boolean; kind?: unknown; payload?: unknown; channel?: unknown; tile?: unknown; facing?: unknown } | null
     if (!m) return
     switch (m.type) {
       case 'theme': if (m.color) setTheme(m.color); break
@@ -206,7 +206,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
       // Android 13+ (window.kinwallNative.quickSettingsTiles): offer the "groceries" or "night" tile.
       case 'addTile': if (typeof m.tile === 'string') KinwallNative?.addTile?.(m.tile).catch(() => {}); break
       // web/src/native.ts (window.kinwallNative.barcodeScanner): the camera, for a book's ISBN; the answer is a 'kinwall:barcode' event.
-      case 'scanBarcode': setScanning(true); break
+      case 'scanBarcode': setScanning(scanFacing(m)); break
       case 'signedOut': // web/src/native.ts: the page cleared its key
         // `rejected` (a 401): after a sleep the OAuth key may simply have lapsed, so refresh and carry on.
         if (m.reason === 'rejected' && session.mode === 'oauth') {
@@ -274,7 +274,7 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
     />
   )
 
-  const scanner = scanning && <Scanner onDone={(code) => { setScanning(false); web.current?.injectJavaScript(barcodeScript(code)) }} />
+  const scanner = scanning && <Scanner facing={scanning} onDone={(code) => { setScanning(null); web.current?.injectJavaScript(barcodeScript(code)) }} />
 
   // iOS: the page uses the full screen and drops its status-bar gap in the app (data-native).
   // Android: the page starts under the status bar; the insets are painted in the page's color.
