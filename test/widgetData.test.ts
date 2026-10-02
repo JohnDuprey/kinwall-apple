@@ -13,6 +13,13 @@ test('pickGroceries: the Groceries type first, then the name, then any shopping 
   assert.equal(pickGroceries([household, list('t', 'To-dos', 'todo')])?.id, 'h')
 })
 
+test("pickGroceries: the family's default Groceries list wins (server 0088 isDefault)", () => {
+  const food = list('f', 'Food', 'shopping', false, 'groceries'), costco = { ...list('c', 'Costco', 'shopping', false, 'groceries'), isDefault: true }
+  assert.equal(pickGroceries([food, costco])?.id, 'c')
+  assert.equal(pickGroceries([food, { ...costco, archived: true }])?.id, 'f', 'an archived default is skipped')
+  assert.equal(pickGroceries([food, { ...list('h', 'Hardware', 'shopping', false, 'shopping'), isDefault: true }])?.id, 'f', "the Shopping type's default isn't the groceries one")
+})
+
 test('pickGroceries: Groceries, else the first shopping list, else the first list', () => {
   assert.equal(pickGroceries([list('a', 'To-dos', 'todo'), list('b', 'Costco', 'shopping'), list('c', ' groceries ', 'shopping')])?.id, 'c')
   assert.equal(pickGroceries([list('a', 'To-dos', 'todo'), list('b', 'Costco', 'shopping')])?.id, 'b')

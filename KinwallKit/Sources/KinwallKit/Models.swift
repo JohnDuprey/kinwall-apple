@@ -55,12 +55,17 @@ public struct FamilyList: Codable, Identifiable, Hashable, Sendable {
     /// Shopping lists: "groceries" or "shopping" (the list's type). Nil on other kinds and from
     /// servers older than list types.
     public let catalog: String?
+    /// The family's default list for its type (server migration 0088); nil from older servers.
+    public let isDefault: Bool?
 
-    /// The shopping list Siri, the controls and the List widget mean by default: the first
-    /// Groceries-type list, else one named Groceries, else the first shopping list. Archived lists skipped.
+    /// The shopping list Siri, the controls and the List widget mean by default: the family's default
+    /// Groceries list, else the first Groceries-type list, else one named Groceries, else the first
+    /// shopping list. Archived lists skipped.
     public static func groceries(in lists: [FamilyList]) -> FamilyList? {
         let open = lists.filter { !$0.archived }
-        return open.first { $0.kind == .shopping && $0.catalog == "groceries" }
+        let isGroceries = { (l: FamilyList) in l.kind == .shopping && l.catalog == "groceries" }
+        return open.first { isGroceries($0) && $0.isDefault == true }
+            ?? open.first(where: isGroceries)
             ?? open.first { $0.name.trimmingCharacters(in: .whitespaces).localizedCaseInsensitiveCompare("Groceries") == .orderedSame }
             ?? open.first { $0.kind == .shopping }
     }

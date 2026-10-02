@@ -4,16 +4,18 @@
 import type { ChoreDay } from './reminderPlans'
 
 /** `catalog`: a shopping list's type; missing from servers older than list types. */
-export type FamilyList = { id: string; name: string; emoji?: string | null; kind: 'todo' | 'shopping' | 'reusable'; catalog?: 'groceries' | 'shopping' | null; archived: boolean; openCount: number }
+export type FamilyList = { id: string; name: string; emoji?: string | null; kind: 'todo' | 'shopping' | 'reusable'; catalog?: 'groceries' | 'shopping' | null; isDefault?: boolean; archived: boolean; openCount: number }
 export type ListItem = { id: string; title: string; quantity?: string | null; done: boolean }
 export type ListDetail = { list: FamilyList; items: ListItem[] }
 
-/** The list the List widget, the shortcuts and the tiles mean by default: the first Groceries-type
- * list, else one named Groceries, else the first shopping list, else the first list (as the iOS
- * controls and Siri pick it, KinwallKit FamilyList.groceries). */
+/** The list the List widget, the shortcuts and the tiles mean by default: the family's default
+ * Groceries list (isDefault), else the first Groceries-type list, else one named Groceries, else the
+ * first shopping list, else the first list (as the iOS controls and Siri pick it, KinwallKit
+ * FamilyList.groceries). */
 export function pickGroceries(lists: FamilyList[]): FamilyList | null {
   const open = lists.filter((l) => !l.archived)
-  return open.find((l) => l.kind === 'shopping' && l.catalog === 'groceries') ?? open.find((l) => l.name.trim().toLowerCase() === 'groceries') ?? open.find((l) => l.kind === 'shopping') ?? open[0] ?? null
+  const groceries = (l: FamilyList) => l.kind === 'shopping' && l.catalog === 'groceries'
+  return open.find((l) => groceries(l) && l.isDefault) ?? open.find(groceries) ?? open.find((l) => l.name.trim().toLowerCase() === 'groceries') ?? open.find((l) => l.kind === 'shopping') ?? open[0] ?? null
 }
 
 /** A Chores widget's rows: one person's (with Anyone chores), or everyone's; ones left first. */

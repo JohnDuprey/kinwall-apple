@@ -23,7 +23,7 @@ A menu for M3 (widgets), M4 (Watch) and M5 (Siri), built on things Kinwall alrea
 | **Now & Next** | Small, medium | What's on now, what's next, and a live "leave in 12 min" countdown. Surfaces itself in the Smart Stack as leave-by nears. | First |
 | **Today** | Medium, large | A small Board: today's events, chores left per person, what's due. | First |
 | **Chores** | Small to large, interactive | Everyone, one person (with or without Anyone chores), or only Anyone chores, with a tap to tick off. Set to a person, it credits them for Anyone chores; otherwise an Anyone chore opens the app to ask who did it. A chore with an open checklist opens the checklist in the app. The small size uses the chore's emoji as the checkbox so titles get two lines. | First |
-| **List** | Medium, large, interactive | A chosen list, Groceries by default (`FamilyList.groceries`: the first Groceries-type list, else one named Groceries, else the first shopping list; Siri and the controls pick the same way): tick items off in the widget. **Add** opens a quick-add in the app. | First |
+| **List** | Medium, large, interactive | A chosen list, Groceries by default (`FamilyList.groceries`: the family's default Groceries list, else the first Groceries-type list, else one named Groceries, else the first shopping list; Siri and the controls pick the same way): tick items off in the widget. **Add** opens a quick-add in the app. | First |
 | **Leaderboard** | Small, medium | This week's points and streaks. Motivating on a kid's iPad. | Later |
 | **Family photo** | Small to large | A rotating picture from the family album, like the Board's photo card. Great in StandBy. | Later |
 | **Countdown** | Small | Days until a chosen event or the next birthday ("Beach trip in 12 days"). | Later |
@@ -233,7 +233,7 @@ Four, rendered from JavaScript (`src/widgets.tsx`, [`react-native-android-widget
 |---|---|---|
 | **Now & Next** (`Kinwall`) | 3×2 | As before: now, next with the leave-by time, chores left |
 | **Chores** | 3×3 | Today's chores, ones left first. Its settings (touch and hold → the pencil) pick a person or Everyone; by default the phone's own person, else Everyone. A tap ticks it (`POST /api/chores/{id}/complete`); an Anyone chore credits the widget's person, or opens the app on "Who did it?" when it's set to Everyone; one with an open checklist opens that checklist |
-| **List** | 3×3 | Groceries (the first Groceries-type list, else one named Groceries, else the first shopping list), or a list picked in its settings. Tap an item to tick it; **+ Add** opens the list in the app, where the add field is |
+| **List** | 3×3 | Groceries (the family's default Groceries list, else the first Groceries-type list, else one named Groceries, else the first shopping list), or a list picked in its settings. Tap an item to tick it; **+ Add** opens the list in the app, where the add field is |
 | **Take now** | 2×2 | How many medicines are due now (`GET /api/medications/due`). Never their names: a count and "Medicine" only |
 
 - **Colors:** each widget draws a light and a dark version in the family's saved colors (`src/appearance.ts` `widgetPalette`: the page's surfaces with Kinwall's text and accent), so it follows Android's dark theme, or stays in the family's light or dark when they chose one. Kinwall's own colors before the page has sent any.

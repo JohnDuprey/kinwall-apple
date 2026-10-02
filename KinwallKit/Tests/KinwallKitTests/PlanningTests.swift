@@ -115,6 +115,11 @@ private func ev(_ id: String, _ title: String, _ start: String, _ end: String, a
         let typed = try lists(#"[{"id":"g","name":"Groceries","kind":"shopping","catalog":"shopping","archived":false,"itemCount":0,"openCount":0},{"id":"f","name":"Food","kind":"shopping","catalog":"groceries","archived":false,"itemCount":0,"openCount":0}]"#)
         #expect(FamilyList.groceries(in: typed)?.id == "f")
     }
+    @Test func prefersTheDefaultGroceriesList() throws {
+        let typed = try lists(#"[{"id":"f","name":"Food","kind":"shopping","catalog":"groceries","archived":false,"itemCount":0,"openCount":0},{"id":"c","name":"Costco","kind":"shopping","catalog":"groceries","isDefault":true,"archived":false,"itemCount":0,"openCount":0},{"id":"h","name":"Hardware","kind":"shopping","catalog":"shopping","isDefault":true,"archived":false,"itemCount":0,"openCount":0}]"#)
+        #expect(FamilyList.groceries(in: typed)?.id == "c")
+        #expect(FamilyList.groceries(in: [typed[0], typed[2]])?.id == "f")
+    }
     @Test func olderServersFallBackToTheNameThenAnyShoppingList() throws {
         let old = try lists(#"[{"id":"c","name":"Costco","kind":"shopping","archived":false,"itemCount":0,"openCount":0},{"id":"g","name":"groceries","kind":"shopping","archived":false,"itemCount":0,"openCount":0}]"#)
         #expect(old[0].catalog == nil)
