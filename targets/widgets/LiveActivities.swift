@@ -256,12 +256,13 @@ struct ShoppingButtons: View {
 
 // MARK: - Colors
 
-/// Kinwall's green, only as an accent on the system's background: the dark one (5.0:1 on the light
-/// Lock Screen card), the light one (7.6:1 on the dark card, 9.4:1 on the black Dynamic Island).
+/// Kinwall's blue-green (Eucalyptus), only as an accent on the system's background: the deep one
+/// (5.6:1 on the light Lock Screen card), the light one (8.0:1 on the dark card, 9.8:1 on the black
+/// Dynamic Island).
 /// The family's colors (attributes.colors) still tint the cooking alarm, not the activity.
 enum ActivityTheme {
-    static let accent = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(accentOnDark) : UIColor(red: 0x00 / 255, green: 0x77 / 255, blue: 0x4B / 255, alpha: 1) })
-    static let accentOnDark = Color(hex: "#44C28D")!
+    static let accent = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(accentOnDark) : UIColor(red: 0x1F / 255, green: 0x6B / 255, blue: 0x63 / 255, alpha: 1) })
+    static let accentOnDark = Color(hex: "#5CC2B3")!
 }
 
 extension Color {

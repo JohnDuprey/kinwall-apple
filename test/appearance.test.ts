@@ -37,8 +37,8 @@ test('frameColors: auto follows the system now, not when it was saved', () => {
 })
 
 test('activityColors: the family\'s background with readable text and accent; none without a look', () => {
-  assert.deepEqual(activityColors(frameColors(parseAppearance({ mode: 'dark', dark: true, colors }), false)), { bg: '#0F1420', fg: '#E5F0EA', accent: '#44C28D' })
-  assert.deepEqual(activityColors({ bg: '#FFFBF5', card: '#FFFFFF', dark: false }), { bg: '#FFFBF5', fg: '#14261D', accent: '#00774B' })
+  assert.deepEqual(activityColors(frameColors(parseAppearance({ mode: 'dark', dark: true, colors }), false)), { bg: '#0F1420', fg: '#E3EEEC', accent: '#5CC2B3' })
+  assert.deepEqual(activityColors({ bg: '#FFFBF5', card: '#FFFFFF', dark: false }), { bg: '#FFFBF5', fg: '#13262A', accent: '#1F6B63' })
   assert.equal(activityColors(null), null)
 })
 
@@ -46,13 +46,13 @@ test('widgetPalette: the family surfaces, light and dark as the family set them'
   const auto = parseAppearance({ mode: 'auto', dark: false, colors })!
   assert.equal(widgetPalette(auto, false).bg, '#FFFBF5')
   assert.equal(widgetPalette(auto, true).bg, '#0F1420')
-  assert.equal(widgetPalette(auto, true).fg, '#E5F0EA')
+  assert.equal(widgetPalette(auto, true).fg, '#E3EEEC')
   // The family chose dark: the widget stays dark with the system light.
   const dark = parseAppearance({ mode: 'dark', dark: true, colors })!
   assert.deepEqual(widgetPalette(dark, false), widgetPalette(dark, true))
   assert.equal(widgetPalette(dark, false).card, '#1B2333')
   // Nothing saved yet: Kinwall's own, following the system.
-  // Nothing saved yet: Kinwall's own, Sage (the web app's default scheme), following the system.
-  assert.equal(widgetPalette(null, false).bg, '#E9F6EF')
-  assert.equal(widgetPalette(null, true).bg, '#0D1D15')
+  // Nothing saved yet: Kinwall's own, Eucalyptus (the web app's default scheme), following the system.
+  assert.equal(widgetPalette(null, false).bg, '#EAF2EF')
+  assert.equal(widgetPalette(null, true).bg, '#0E1A1A')
 })
