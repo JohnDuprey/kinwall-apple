@@ -40,13 +40,15 @@ const VERSION = Constants.expoConfig?.version ?? '0'
 const NONCE = Array.from(Crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
 
 /** Read by the web app to adapt (hide the Add to Home Screen card and web push, which don't
- * apply inside the app). Keep in sync with web/src/native.ts in the kinwall repo, which posts to
+ * apply inside the app). `providerReturn`: this app finishes a Google/Microsoft sign-in handed back
+ * from the in-app browser (src/providerReturn.ts); the web app asks an app without it to update
+ * before connecting one. Keep in sync with web/src/native.ts in the kinwall repo, which posts to
  * webkit.messageHandlers.kinwall: that's shimmed onto the WebView's own channel here.
  * `frame`: the family's last colors (src/appearance.ts), put on <html> before anything paints so
  * the page's first frame ("Loading…") is already in them; the page's own theme takes over once
  * its settings load (web/src/useTheme.ts). */
 const bridge = (origin: string, token: string | null, frame: (Surface & { dark: boolean }) | null) => `
-window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)}, videoCall: ${JSON.stringify(Platform.OS === 'android')} };
+window.kinwallNative = { platform: ${JSON.stringify(Platform.OS)}, version: ${JSON.stringify(VERSION)}, providerReturn: true, liveActivities: ${JSON.stringify(activitiesEnabled())}, notificationSettings: ${JSON.stringify(Platform.OS === 'android')}, quickSettingsTiles: ${JSON.stringify(Platform.OS === 'android' && Number(Platform.Version) >= 33)}, videoCall: ${JSON.stringify(Platform.OS === 'android')} };
 ${token ? `if (location.origin === ${JSON.stringify(origin)}) try { localStorage.setItem('kinwall.apiKey', ${JSON.stringify(token)}) } catch (e) {}` : ''}
 ${frame ? `try { var r = document.documentElement; r.setAttribute('data-theme', ${JSON.stringify(frame.dark ? 'dark' : 'light')}); r.style.setProperty('--bg', ${JSON.stringify(frame.bg)}); r.style.setProperty('--card', ${JSON.stringify(frame.card)}) } catch (e) {}` : ''}
 (function () {
@@ -159,7 +161,9 @@ export function WebShell({ url, session, route, onRouteApplied, onTokens, onSign
 
   // 'night' (Siri, Control Center): the event the header's 🌙 Night screen button sends (web/src/Screensaver.tsx SAVER_START_EVENT).
   // 'contacts/import' (Android's share sheet): the shared vCard MainActivity left with the native module.
-  const go = (to: string) => web.current?.injectJavaScript(to === 'night'
+  // A full URL on this server (a provider sign-in's callback, src/providerReturn.ts): load it here.
+  const go = (to: string) => web.current?.injectJavaScript(/^https?:/.test(to) ? (isKinwall(to) ? `location.href = ${JSON.stringify(to)}; true;` : 'true;')
+    : to === 'night'
     ? `window.dispatchEvent(new Event('kinwall:screensaver-start')); true;`
     : to === 'contacts/import' ? importContactsScript(KinwallNative?.takeSharedContacts?.())
     : `location.hash = ${JSON.stringify('#/' + to)}; true;`)

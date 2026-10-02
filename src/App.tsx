@@ -1,7 +1,8 @@
 import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
-import { useCallback, useEffect, useState } from 'react'
-import { AppState } from 'react-native'
+import * as WebBrowser from 'expo-web-browser'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AppState, Platform } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
@@ -13,6 +14,7 @@ import { ServerEntry } from './ServerEntry'
 import { type Session, freshTokens, loadSession, signOut } from './session'
 import { syncWatch, widgetConnection } from './sharedKey'
 import { groceriesRoute, routeFor } from './links'
+import { isProviderReturn, providerReturnUrl } from './providerReturn'
 import { lists } from './api'
 import { pickGroceries } from './widgetData'
 import { showSampleCooking, showSampleMedication } from './liveActivities'
@@ -49,6 +51,18 @@ export default function App() {
   // to tap that chore in the web app (it asks "Who did it?" or opens the checklist); and shared
   // recipe links (to=recipes/import&url=…), which open the web app's recipe import.
   useEffect(() => { if (url) { if (__DEV__ && url.includes('debug=medication')) showSampleMedication(); if (__DEV__ && url.includes('debug=cooking')) showSampleCooking(); const r = routeFor(url); if (r) resolve(r).then(setRoute) } }, [url])
+  // A Google/Microsoft sign-in handed back from the in-app browser (src/providerReturn.ts): close
+  // that browser (iOS; Android brings the app forward over its Custom Tab) and finish it in the web
+  // view, on this app's own server. Each link once (the session changes on every token refresh).
+  // Signed out or in the demo there's no web view that started it, so it's dropped.
+  const handled = useRef<string | null>(null)
+  useEffect(() => {
+    if (!url || server === undefined || handled.current === url || !isProviderReturn(url)) return
+    handled.current = url
+    if (Platform.OS === 'ios') WebBrowser.dismissBrowser().catch(() => {})
+    const callback = server && session && session.mode !== 'demo' ? providerReturnUrl(url, server) : null
+    if (callback) setRoute(callback)
+  }, [url, server, session])
   // Siri and the Controls (native/ios/OpenIntents.swift) leave their link with the native module:
   // take it at launch, when told, and on every return to the app.
   useEffect(() => {
