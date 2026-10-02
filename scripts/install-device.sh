@@ -8,7 +8,9 @@
 set -euo pipefail
 : "${TEAM:?Set TEAM to your Apple Developer team ID (developer.apple.com → Membership)}"
 cd "$(dirname "$0")/.."
-OUT="${OUT:-/tmp/kinwall-device}"   # outside ~/Documents: codesign trips over Finder metadata there
+# Outside ~/Documents (codesign trips over Finder metadata there), and one per checkout: two worktrees
+# building at once into one folder mix their apps (one installed the other's build once).
+OUT="${OUT:-/tmp/kinwall-device-$(basename "$PWD")}"
 if [ -z "${DEVICE:-}" ]; then
   DEVICE=$(xcrun devicectl list devices 2>/dev/null | awk '(/connected/ || /available/) && !/simulated/ && !/unavailable/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F]{8}-/) print $i }' | head -1)
   [ -n "$DEVICE" ] || { echo "No paired iPhone or iPad (pair it in Xcode → Window → Devices and Simulators, by cable or over Wi-Fi, and turn on Developer Mode)" >&2; exit 1; }

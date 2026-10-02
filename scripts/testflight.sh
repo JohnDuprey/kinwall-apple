@@ -7,7 +7,9 @@
 set -eu
 : "${TEAM:?Set TEAM to your Apple Developer team ID (developer.apple.com → Membership)}"
 cd "$(dirname "$0")/.."
-OUT="${OUT:-/tmp/kinwall-testflight}"   # outside ~/Documents: codesign trips over Finder metadata there
+# Outside ~/Documents (codesign trips over Finder metadata there), and one per checkout: two worktrees
+# building at once into one folder mix their apps (one installed the other's build once).
+OUT="${OUT:-/tmp/kinwall-testflight-$(basename "$PWD")}"
 VERSION=$(node -p "require('./package.json').version")
 # Same rule as .github/workflows/testflight.yml: "<major*10000 + minor*100 + patch>.<minutes since
 # 1970>", so uploads from here or from CI always go up within a version.
