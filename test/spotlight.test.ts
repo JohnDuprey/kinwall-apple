@@ -25,3 +25,14 @@ test('spotlightItems: names and a short line, each opening its page', () => {
 test('spotlightItems: ids that could reach page script are skipped', () => {
   assert.equal(spotlightItems({ recipes: [{ id: 'x"<', name: 'Bad' }], lists: [], contacts: [] }).length, 0)
 })
+
+test('spotlightItems: nothing of a kind the family turned off; a missing switch is on', () => {
+  const d = {
+    recipes: [{ id: 'r1', name: 'Lemon chicken' }],
+    lists: [{ id: 'l1', name: 'Groceries', kind: 'shopping', archived: false, openCount: 1 }],
+    contacts: [{ id: 'c1', name: 'Dr. Rivera' }],
+  }
+  assert.deepEqual(spotlightItems(d, { meals: false, contacts: false }).map((i) => i.kind), ['list'])
+  assert.deepEqual(spotlightItems(d, { lists: false, chores: false }).map((i) => i.kind), ['recipe', 'contact'])
+  assert.equal(spotlightItems(d, {}).length, 3, 'an older server sends no switches')
+})

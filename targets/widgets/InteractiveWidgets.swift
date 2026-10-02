@@ -15,8 +15,10 @@ struct ChoresEntry: TimelineEntry {
     let member: MemberEntity?
     let signedOut: Bool
     var demo = false
+    /// The family turned chores off.
+    var off = false
     /// Smart Stack: a little while any are left (chores have no time of day to rise toward).
-    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: Float(chores.filter { !$0.completed }.count)) }
+    var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: off ? 0 : Float(chores.filter { !$0.completed }.count)) }
 }
 
 struct ChoresProvider: AppIntentTimelineProvider {
@@ -29,7 +31,9 @@ struct ChoresProvider: AppIntentTimelineProvider {
         let client = try? widgetClient()
         let demo = client == nil && Demo.isOn // the demo family's sample chores (KinwallWidgets.swift)
         guard client != nil || demo else { return ChoresEntry(date: .now, day: "", chores: [], member: nil, signedOut: true) }
-        let tz = (try? await client?.settings())?.timezone
+        let settings = try? await client?.settings()
+        if settings?.on.chores == false { return ChoresEntry(date: .now, day: "", chores: [], member: nil, signedOut: false, off: true) }
+        let tz = settings?.timezone
         let day = HouseholdDate.key(timezone: tz)
         let all = demo ? Demo.chores : ((try? await client?.chores(on: day)) ?? [])
         let mine: [ChoreDay]
@@ -64,7 +68,7 @@ struct ChoresView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if entry.signedOut { ProblemView(problem: .signedOut) } else {
+        if entry.signedOut { ProblemView(problem: .signedOut) } else if entry.off { ProblemView(problem: .choresOff) } else {
             let limit = family == .systemLarge ? 8 : 3
             let left = entry.chores.filter { !$0.completed }.count
             VStack(alignment: .leading, spacing: family == .systemSmall ? 5 : 6) {
@@ -126,6 +130,8 @@ struct ListEntry: TimelineEntry {
     let list: ListDetail?
     let signedOut: Bool
     var demo = false
+    /// The family turned lists off.
+    var off = false
 }
 
 struct ListProvider: AppIntentTimelineProvider {
@@ -138,6 +144,7 @@ struct ListProvider: AppIntentTimelineProvider {
         guard let client = try? widgetClient() else {
             return Demo.isOn ? ListEntry(date: .now, list: Demo.groceries, signedOut: false, demo: true) : ListEntry(date: .now, list: nil, signedOut: true)
         }
+        if await !client.features().lists { return ListEntry(date: .now, list: nil, signedOut: false, off: true) }
         var id = config.list
         if id == nil { id = (try? await FamilyList.groceries(in: client.lists()))?.id } // default: Groceries
         guard let id, let detail = try? await client.list(id) else { return ListEntry(date: .now, list: nil, signedOut: false) }
@@ -161,7 +168,7 @@ struct ListWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if entry.signedOut { ProblemView(problem: .signedOut) } else if let list = entry.list {
+        if entry.signedOut { ProblemView(problem: .signedOut) } else if entry.off { ProblemView(problem: .listsOff) } else if let list = entry.list {
             let open = list.items.filter { !$0.done }
             VStack(alignment: .leading, spacing: 6) {
                 HStack {

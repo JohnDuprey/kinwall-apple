@@ -20,6 +20,32 @@ public struct Settings: Codable, Hashable, Sendable {
     public let timezone: String?
     public let weekStart: Int
     public let colorScheme: String?
+    /// The family's feature switches; nil from servers older than them (everything on).
+    public var features: Features? = nil
+    /// Rewards (spending points); nil from older servers (on).
+    public var rewardsEnabled: Bool? = nil
+    /// The switches to go by: all on when the server sent none.
+    public var on: Features { features ?? Features() }
+}
+
+/// What a family turned on or off in Kinwall's settings (GET /api/settings `features`). A switch
+/// the server doesn't send (an older server, or one added later) counts as on, and one the apps
+/// don't know is ignored, so neither breaks decoding.
+public struct Features: Codable, Hashable, Sendable {
+    public var chores = true, lists = true, contacts = true, paint = true, photos = true, notes = true, meals = true,
+               messages = true, newscast = true, trackersReading = true, trackersMemories = true, trackersHealth = true, checkIns = true
+
+    public init() {}
+    private enum CodingKeys: String, CodingKey {
+        case chores, lists, contacts, paint, photos, notes, meals, messages, newscast, trackersReading, trackersMemories, trackersHealth, checkIns
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func on(_ key: CodingKeys) -> Bool { (try? c.decodeIfPresent(Bool.self, forKey: key)) ?? true }
+        chores = on(.chores); lists = on(.lists); contacts = on(.contacts); paint = on(.paint); photos = on(.photos)
+        notes = on(.notes); meals = on(.meals); messages = on(.messages); newscast = on(.newscast)
+        trackersReading = on(.trackersReading); trackersMemories = on(.trackersMemories); trackersHealth = on(.trackersHealth); checkIns = on(.checkIns)
+    }
 }
 
 /// A chore as it stands on one day (GET /api/chores/day).
@@ -213,6 +239,12 @@ public struct Board: Codable, Hashable, Sendable {
 
     public init(today: String, events: [BoardEvent], items: [BoardItem], chores: [ChoreProgress]) {
         self.today = today; self.events = events; self.items = items; self.chores = chores
+    }
+
+    /// Without what the family turned off: no chores with chores off, no due items with lists off
+    /// (newer servers already leave them out; older ones don't).
+    public func respecting(_ features: Features) -> Board {
+        Board(today: today, events: events, items: features.lists ? items : [], chores: features.chores ? chores : [])
     }
 
     /// Timed events today that haven't ended, soonest first; `now` is the first one under way.

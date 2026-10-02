@@ -42,6 +42,13 @@ private func groceriesId() async -> String? {
     return try? await groceries(kinwall)?.id
 }
 
+/// Lists turned off in the family's settings: the controls then just open the app. On when it
+/// can't tell (signed out, offline, the demo).
+private func listsOn() async -> Bool {
+    guard !DemoFamily.isOn, let kinwall = openClient() else { return true }
+    return await kinwall.features().lists
+}
+
 /// "Start the night screen": the app shows the dim night clock until a tap, as the header's 🌙 button does.
 struct NightScreenIntent: AppIntent {
     static let title: LocalizedStringResource = "Start the night screen"
@@ -59,6 +66,7 @@ struct ShopGroceriesIntent: AppIntent {
     static let description = IntentDescription("Opens Kinwall's shopping mode on Groceries.")
     static let openAppWhenRun = true
     func perform() async throws -> some IntentResult {
+        guard await listsOn() else { return .result() }
         // Signed out or offline: the app opens on its Lists (or sign-in) instead.
         if let id = await groceriesId() { AppLink.open(AppLink.shop(list: id, store: nil)) }
         else { AppLink.open("family.kinwall.app:/open?to=lists") }
@@ -72,6 +80,7 @@ struct OpenGroceriesIntent: AppIntent {
     static let description = IntentDescription("Opens Groceries in Kinwall to add something.")
     static let openAppWhenRun = true
     func perform() async throws -> some IntentResult {
+        guard await listsOn() else { return .result() }
         if let id = await groceriesId() { AppLink.open(AppLink.list(id)) }
         else { AppLink.open("family.kinwall.app:/open?to=lists") }
         return .result()

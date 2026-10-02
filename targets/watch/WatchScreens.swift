@@ -70,11 +70,14 @@ struct ChoresView: View {
     @State private var chores: [ChoreDay] = []
     @State private var day = ""
     @State private var failed = false
+    @State private var off = false // the family turned chores off
 
     var body: some View {
         NavigationStack {
             List {
-                if members.isEmpty && !failed {
+                if off {
+                    Text("Chores are turned off in Kinwall.").foregroundStyle(.secondary)
+                } else if members.isEmpty && !failed {
                     ProgressView()
                 } else if failed {
                     Text("Can't reach Kinwall right now").foregroundStyle(.secondary)
@@ -127,8 +130,10 @@ struct ChoresView: View {
 
     private func load() async {
         do {
-            let tz = try? await client.settings().timezone
-            day = HouseholdDate.key(timezone: tz)
+            let settings = try? await client.settings()
+            off = settings?.on.chores == false
+            if off { return }
+            day = HouseholdDate.key(timezone: settings?.timezone)
             async let m = client.members()
             async let c = client.chores(on: day)
             (members, chores) = try await (m, c)
@@ -243,11 +248,13 @@ struct ListsView: View {
     let client: KinwallClient
     @State private var lists: [FamilyList] = []
     @State private var failed = false
+    @State private var off = false // the family turned lists off
 
     var body: some View {
         NavigationStack {
             List {
-                if lists.isEmpty && !failed { ProgressView() }
+                if off { Text("Lists are turned off in Kinwall.").foregroundStyle(.secondary) }
+                else if lists.isEmpty && !failed { ProgressView() }
                 if failed { Text("Can't reach Kinwall right now").foregroundStyle(.secondary) }
                 ForEach(lists) { l in
                     NavigationLink {
@@ -267,6 +274,8 @@ struct ListsView: View {
     }
 
     private func load() async {
+        off = await !client.features().lists
+        if off { lists = []; return }
         do { lists = try await client.lists().filter { !$0.archived }; failed = false } catch { failed = lists.isEmpty }
     }
 }

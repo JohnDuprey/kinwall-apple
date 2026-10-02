@@ -6,7 +6,7 @@ import {
   FlexWidget, ListWidget, TextWidget, registerWidgetConfigurationScreen, registerWidgetTaskHandler,
   type WidgetConfigurationScreenProps, type WidgetRepresentation, type WidgetTaskHandlerProps,
 } from 'react-native-android-widget'
-import { type Board, type Connection, board, choresOn, completeChore, dueDoses, list, lists, me, members, nowAndNext, setItemDone } from './api'
+import { type Board, type Connection, board, choresOn, completeChore, dueDoses, features, list, lists, me, members, nowAndNext, setItemDone } from './api'
 import { type WidgetPalette, widgetPalette } from './appearance'
 import { savedAppearance, useUi } from './theme'
 import { widgetConnection } from './sharedKey'
@@ -99,7 +99,7 @@ function Chores({ p, d, problem }: { p: WidgetPalette; d: ChoresData | null; pro
   )
 }
 
-function List({ p, d, problem, demo }: { p: WidgetPalette; d: ListDetail | null; problem?: string; demo?: boolean }) {
+function List({ p, d, problem, demo, off }: { p: WidgetPalette; d: ListDetail | null; problem?: string; demo?: boolean; off?: boolean }) {
   const open = d?.items.filter((i) => !i.done) ?? []
   const to = d ? `lists&list=${d.list.id}` : 'lists'
   return (
@@ -109,10 +109,12 @@ function List({ p, d, problem, demo }: { p: WidgetPalette; d: ListDetail | null;
           <TextWidget text={d ? `${d.list.emoji ? d.list.emoji + ' ' : ''}${d.list.name}` : 'List'} style={{ fontSize: 15, fontWeight: 'bold', color: p.fg }} maxLines={1} truncate="END" />
           <TextWidget text={d ? (open.length === 0 ? 'All done' : `${open.length} left`) : ''} style={{ fontSize: 12, color: p.dim }} />
         </FlexWidget>
-        {/* A widget can't take typing: Add opens the list, where the add field is. */}
-        <FlexWidget style={{ backgroundColor: p.accent, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }} clickAction="OPEN_URI" clickActionData={link(to)}>
-          <TextWidget text="+ Add" style={{ fontSize: 13, fontWeight: 'bold', color: p.bg }} />
-        </FlexWidget>
+        {/* A widget can't take typing: Add opens the list, where the add field is. Not with Lists off. */}
+        {off ? null : (
+          <FlexWidget style={{ backgroundColor: p.accent, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }} clickAction="OPEN_URI" clickActionData={link(to)}>
+            <TextWidget text="+ Add" style={{ fontSize: 13, fontWeight: 'bold', color: p.bg }} />
+          </FlexWidget>
+        )}
       </FlexWidget>
       {problem ? <Note p={p} text={problem} /> : null}
       {d ? (
@@ -166,6 +168,8 @@ function sampleBoard(now = Date.now()): Board {
 
 const OFFLINE = "Can't reach Kinwall right now"
 const SIGNED_OUT = 'Open Kinwall to sign in'
+const CHORES_OFF = 'Chores are turned off in Kinwall'
+const LISTS_OFF = 'Lists are turned off in Kinwall'
 const ownPerson = (c: Connection) => me(c).then((m) => (m.owner && m.owner !== 'shared' ? m.owner : null)).catch(() => null)
 
 /** Fetches once; draws with either palette. */
@@ -176,7 +180,8 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     case 'Chores': {
       if (demo) return (p) => <Chores p={p} d={{ date: 'demo', person: null, names: DEMO_PEOPLE, chores: DEMO_CHORES, demo }} problem="Demo" />
       if (!c) return (p) => <Chores p={p} d={null} problem={SIGNED_OUT} />
-      const b = await board(c, 1).catch(() => null)
+      const [b, f] = await Promise.all([board(c, 1).catch(() => null), features(c)])
+      if (f.chores === false) return (p) => <Chores p={p} d={null} problem={CHORES_OFF} />
       const chores = b && (await choresOn(c, b.today).catch(() => null))
       if (!b || !chores) return (p) => <Chores p={p} d={null} problem={OFFLINE} />
       const set = loadConfig(id)
@@ -187,6 +192,7 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     case 'List': {
       if (demo) return (p) => <List p={p} d={DEMO_GROCERIES} problem="Demo" demo />
       if (!c) return (p) => <List p={p} d={null} problem={SIGNED_OUT} />
+      if ((await features(c)).lists === false) return (p) => <List p={p} d={null} problem={LISTS_OFF} off />
       const chosen = loadConfig(id).list ?? (await lists(c).then(pickGroceries).catch(() => null))?.id
       const d = chosen ? await list(c, chosen).catch(() => null) : null
       return (p) => <List p={p} d={d} problem={d ? problem : OFFLINE} />
@@ -201,7 +207,8 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     default: {
       if (demo) return (p) => <NowAndNext p={p} b={sampleBoard()} problem="Demo" />
       if (!c) return (p) => <NowAndNext p={p} b={null} problem={SIGNED_OUT} />
-      const b = await board(c, 1).catch(() => null)
+      const [fetched, f] = await Promise.all([board(c, 1).catch(() => null), features(c)])
+      const b = fetched && f.chores === false ? { ...fetched, chores: [] } : fetched // no chores line with Chores off
       return (p) => <NowAndNext p={p} b={b} problem={b ? undefined : OFFLINE} />
     }
   }

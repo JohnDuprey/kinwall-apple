@@ -8,6 +8,8 @@ import WidgetKit
 // app's own process without opening it (the last two and Start shopping open it), with the widgets'
 // everyday-access key from the shared Keychain group, so the server's rules for that key apply: it
 // can add to lists and tick chores, and a device that belongs to one person can only tick theirs.
+// With Chores or Lists turned off in the family's settings, the intents for them answer "Chores
+// (Lists) are turned off in Kinwall." and save nothing (requireOn), and "What's on today" skips chores.
 //
 // Lists, people, today's chores, stores and remembered groceries are entities, so Siri can match
 // them in a phrase ("Add to Groceries in Kinwall", "Add milk to Kinwall"); each also answers to its
@@ -28,7 +30,7 @@ private let demoNote = " This is the demo, so nothing is saved."
 func demoAdd(_ item: String) -> String { "Kinwall is showing the demo, so \(item) wasn't saved. Sign in to your family in Kinwall to add it." }
 
 enum KinwallIntentError: Error, CustomLocalizedStringResourceConvertible {
-    case signedOut, noList, noShoppingList, checklist(String), server(String), demo(String)
+    case signedOut, noList, noShoppingList, checklist(String), server(String), demo(String), off(String)
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .signedOut: "Kinwall isn't signed in on this iPhone. Open Kinwall and sign in first."
@@ -37,8 +39,15 @@ enum KinwallIntentError: Error, CustomLocalizedStringResourceConvertible {
         case .checklist(let title): "\(title) has a checklist to finish first. Open Kinwall to tick it off."
         case .server(let message): "Kinwall said: \(message)"
         case .demo(let item): "\(demoAdd(item))"
+        case .off(let feature): "\(feature) are turned off in Kinwall."
         }
     }
+}
+
+/// Stops before anything is saved when the family turned the feature off in Kinwall's settings
+/// (Settings → Features). Never in the demo (`kinwall` nil), where everything is on.
+func requireOn(_ kinwall: KinwallClient?, _ feature: KeyPath<Features, Bool>, _ name: String) async throws {
+    if let kinwall, !(await kinwall.features())[keyPath: feature] { throw KinwallIntentError.off(name) }
 }
 
 /// The server's refusal in its own words (a device that belongs to someone else, a 409 checklist).
@@ -69,7 +78,11 @@ struct ListEntity: AppEntity {
 }
 
 struct ListQuery: EntityStringQuery {
-    func all() async throws -> [ListEntity] { try await (family()?.lists() ?? DemoFamily.lists).filter { !$0.archived }.map(ListEntity.init) }
+    func all() async throws -> [ListEntity] {
+        let kinwall = try family()
+        try await requireOn(kinwall, \.lists, "Lists")
+        return try await (kinwall?.lists() ?? DemoFamily.lists).filter { !$0.archived }.map(ListEntity.init)
+    }
     func entities(for identifiers: [String]) async throws -> [ListEntity] { try await all().filter { identifiers.contains($0.id) } }
     func entities(matching string: String) async throws -> [ListEntity] { try await all().filter { $0.name.localizedCaseInsensitiveContains(string) } }
     func suggestedEntities() async throws -> [ListEntity] { Array(try await all().prefix(SiriBudget.maxLists)) }
@@ -108,6 +121,7 @@ struct ChoreEntity: AppEntity {
 struct ChoreQuery: EntityStringQuery {
     func all() async throws -> [ChoreEntity] {
         guard let kinwall = try family() else { return DemoFamily.chores.filter { !$0.completed }.map(ChoreEntity.init) }
+        try await requireOn(kinwall, \.chores, "Chores")
         return try await kinwall.chores(on: today(kinwall)).filter { !$0.completed }.map(ChoreEntity.init)
     }
     func entities(for identifiers: [String]) async throws -> [ChoreEntity] { try await all().filter { identifiers.contains($0.id) } }
@@ -126,6 +140,7 @@ struct StoreEntity: AppEntity {
 struct StoreQuery: EntityStringQuery {
     func all() async throws -> [StoreEntity] {
         guard let kinwall = try family() else { return (DemoFamily.groceries.suggestions?.stores ?? []).map(StoreEntity.init) }
+        try await requireOn(kinwall, \.lists, "Lists")
         guard let list = defaultList(try await kinwall.lists(), shopping: true) else { return [] }
         return (try await kinwall.list(list.id).suggestions?.stores ?? []).map(StoreEntity.init)
     }
@@ -148,6 +163,7 @@ struct ItemEntity: AppEntity {
 struct ItemQuery: EntityStringQuery {
     func all() async throws -> [RememberedItem] {
         guard let kinwall = try family() else { return DemoFamily.groceries.items.map { RememberedItem(title: $0.title, uses: 1, lastUsed: nil) } }
+        try await requireOn(kinwall, \.lists, "Lists")
         return RememberedItem.forSiri(try await kinwall.remembered())
     }
     func entities(for identifiers: [String]) async throws -> [ItemEntity] { identifiers.map(ItemEntity.init) }
@@ -167,6 +183,7 @@ struct AddToListIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let kinwall = try family()
+        try await requireOn(kinwall, \.lists, "Lists")
         let target: ListEntity
         if let list { target = list } else {
             guard let fallback = defaultList(try await kinwall?.lists() ?? DemoFamily.lists) else { throw KinwallIntentError.noList }
@@ -191,6 +208,7 @@ struct AddGroceryIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let kinwall = try family()
+        try await requireOn(kinwall, \.lists, "Lists")
         guard let list = defaultList(try await kinwall?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
         guard let kinwall else { return .result(dialog: IntentDialog(stringLiteral: demoAdd(item.name))) }
         let added = try await explained { try await kinwall.addItem(item.id, to: list.id, skipExisting: true) }
@@ -201,10 +219,12 @@ struct AddGroceryIntent: AppIntent {
 
 struct WhatsOnTodayIntent: AppIntent {
     static let title: LocalizedStringResource = "What's on today"
-    static let description = IntentDescription("Today's events that are still ahead, and how many chores are left.")
+    static let description = IntentDescription("Today's events that are still ahead, and how many chores are left (when the family uses chores).")
 
     func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
-        let board = try await explained { try await family()?.board(days: 1) } ?? DemoFamily.board()
+        let kinwall = try family()
+        var board = try await explained { try await kinwall?.board(days: 1) } ?? DemoFamily.board()
+        if let kinwall { board = board.respecting(await kinwall.features()) } // no "3 chores left" with chores off
         let summary = TodaySummary(board: board)
         return .result(dialog: IntentDialog(stringLiteral: summary.spoken), view: TodaySnippet(summary: summary))
     }
@@ -260,6 +280,7 @@ struct CompleteChoreIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let kinwall = try family() else { return .result(dialog: "Marked \(chore.title) done.\(demoNote)") }
+        try await requireOn(kinwall, \.chores, "Chores")
         let day = await today(kinwall)
         let current = try await explained { try await kinwall.chores(on: day) }.first { $0.id == chore.id }
         if let checklist = current?.checklist, !checklist.isFinished { throw KinwallIntentError.checklist(chore.title) }
@@ -283,7 +304,9 @@ struct StartShoppingIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let list = defaultList(try await family()?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
+        let kinwall = try family()
+        try await requireOn(kinwall, \.lists, "Lists")
+        guard let list = defaultList(try await kinwall?.lists() ?? DemoFamily.lists, shopping: true) else { throw KinwallIntentError.noShoppingList }
         AppLink.open(AppLink.shop(list: list.id, store: store?.id))
         return .result()
     }

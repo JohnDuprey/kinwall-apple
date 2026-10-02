@@ -1,5 +1,5 @@
 // What Spotlight shows for the family (src/spotlight.ts indexes it): recipes, lists and contacts,
-// names and a short line only. Never health data, notes, phone numbers or addresses. Each item's
+// names and a short line only, and none of a kind the family turned off (Meals, Lists, Contacts). Never health data, notes, phone numbers or addresses. Each item's
 // id is the app link it opens (src/links.ts routeFor). No React Native imports, so
 // test/spotlight.test.ts runs it under node.
 
@@ -14,11 +14,13 @@ const short = (s: string, max = 120) => { const one = s.replace(/\s+/g, ' ').tri
 const line = (...parts: (string | null | undefined | false)[]) => short(parts.filter(Boolean).join(' · '))
 const LIST_KIND: Record<string, string> = { shopping: 'Shopping list', todo: 'To-do list', reusable: 'Reusable list' }
 
-export function spotlightItems(d: { recipes: Recipe[]; lists: List[]; contacts: Contact[] }): SpotlightItem[] {
+/** `features`: the family's switches (src/api.ts Features); a missing one is on. */
+export function spotlightItems(d: { recipes: Recipe[]; lists: List[]; contacts: Contact[] }, features: Partial<Record<string, boolean>> = {}): SpotlightItem[] {
   const link = (to: string, key: string, id: string) => `family.kinwall.app:/open?to=${to}&${key}=${id}`
+  const on = (kind: string) => features[kind] !== false
   return [
-    ...d.recipes.filter((r) => ID.test(r.id)).map((r) => ({ id: link('meals', 'recipe', r.id), title: r.name, kind: 'recipe' as const, description: line('Recipe', r.totalMinutes ? `${r.totalMinutes} min` : null, r.description) })),
-    ...d.lists.filter((l) => !l.archived && ID.test(l.id)).map((l) => ({ id: link('lists', 'list', l.id), title: l.emoji ? `${l.emoji} ${l.name}` : l.name, kind: 'list' as const, description: line(LIST_KIND[l.kind] ?? 'List', `${l.openCount} left`) })),
-    ...d.contacts.filter((c) => ID.test(c.id)).map((c) => ({ id: link('contacts', 'contact', c.id), title: c.name, kind: 'contact' as const, description: line('Contact', c.relationship || c.organization) })),
+    ...(on('meals') ? d.recipes : []).filter((r) => ID.test(r.id)).map((r) => ({ id: link('meals', 'recipe', r.id), title: r.name, kind: 'recipe' as const, description: line('Recipe', r.totalMinutes ? `${r.totalMinutes} min` : null, r.description) })),
+    ...(on('lists') ? d.lists : []).filter((l) => !l.archived && ID.test(l.id)).map((l) => ({ id: link('lists', 'list', l.id), title: l.emoji ? `${l.emoji} ${l.name}` : l.name, kind: 'list' as const, description: line(LIST_KIND[l.kind] ?? 'List', `${l.openCount} left`) })),
+    ...(on('contacts') ? d.contacts : []).filter((c) => ID.test(c.id)).map((c) => ({ id: link('contacts', 'contact', c.id), title: c.name, kind: 'contact' as const, description: line('Contact', c.relationship || c.organization) })),
   ]
 }

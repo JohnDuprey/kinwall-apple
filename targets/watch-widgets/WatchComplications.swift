@@ -20,6 +20,8 @@ struct KinwallComplications: WidgetBundle {
 struct BoardEntry: TimelineEntry {
     let date: Date
     let board: Board?
+    /// The family turned chores off (the board then has none).
+    var choresOff = false
     var next: BoardEvent? {
         guard let board else { return nil }
         let (now, next) = board.nowAndNext(at: date)
@@ -50,12 +52,16 @@ struct BoardProvider: TimelineProvider {
 
     /// One fetch, then an entry whenever an event today starts or ends, so "next" rolls over on time.
     private func load() async -> [BoardEntry] {
-        guard let connection = try? SharedKeychain.widgetStore.load(),
-              let board = try? await KinwallClient(connection).board(days: 1) else { return [BoardEntry(date: .now, board: nil)] }
+        guard let connection = try? SharedKeychain.widgetStore.load() else { return [BoardEntry(date: .now, board: nil)] }
+        let client = KinwallClient(connection)
+        async let on = client.features()
+        guard let fetched = try? await client.board(days: 1) else { return [BoardEntry(date: .now, board: nil)] }
+        let features = await on
+        let board = fetched.respecting(features)
         let now = Date.now
         let changes = board.events.filter { !$0.allDay }.flatMap { [$0.startDate, $0.endDate, $0.leaveDate, ($0.leaveDate ?? $0.startDate)?.addingTimeInterval(-30 * 60)] }.compactMap { $0 }
             .filter { $0 > now && $0 < now.addingTimeInterval(30 * 60) }
-        return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board) }
+        return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board, choresOff: !features.chores) }
     }
 }
 
@@ -115,7 +121,7 @@ struct ChoresLeftComplication: Widget {
             Gauge(value: Double(c.total - c.remaining), in: 0...Double(max(c.total, 1))) {
                 Image(systemName: "checkmark")
             } currentValueLabel: {
-                Text(c.total == 0 ? "–" : "\(c.remaining)")
+                Text(entry.choresOff ? "Off" : c.total == 0 ? "–" : "\(c.remaining)")
             }
             .gaugeStyle(.accessoryCircularCapacity)
             .containerBackground(.fill.tertiary, for: .widget)

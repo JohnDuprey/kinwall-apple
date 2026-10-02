@@ -15,7 +15,7 @@ import { type Session, freshTokens, loadSession, signOut } from './session'
 import { syncWatch, widgetConnection } from './sharedKey'
 import { groceriesRoute, routeFor } from './links'
 import { isProviderReturn, providerReturnUrl } from './providerReturn'
-import { lists } from './api'
+import { type Features, features, lists } from './api'
 import { pickGroceries } from './widgetData'
 import { showSampleCooking, showSampleMedication } from './liveActivities'
 import { syncSpotlight } from './spotlight'
@@ -108,11 +108,13 @@ export default function App() {
 }
 
 /** Android's shortcuts and tiles ask for "groceries": the family's Groceries list, found with the
- * widgets' key (src/widgetData.ts pickGroceries); Lists signed out, offline or in the demo. */
+ * widgets' key (src/widgetData.ts pickGroceries); Lists signed out, offline or in the demo; the
+ * calendar when the family turned Lists off. */
 async function resolve(route: string): Promise<string> {
   if (route !== 'groceries' && route !== 'groceries/shop') return route
   const c = await widgetConnection()
-  const groceries = c ? await lists(c).then(pickGroceries).catch(() => null) : null
+  const [groceries, f] = await Promise.all([c ? lists(c).then(pickGroceries).catch(() => null) : null, c ? features(c) : ({} as Features)])
+  if (f.lists === false) return 'calendar'
   return groceriesRoute(route, groceries?.id)
 }
 

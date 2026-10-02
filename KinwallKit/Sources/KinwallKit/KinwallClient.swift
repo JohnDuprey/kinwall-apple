@@ -39,6 +39,9 @@ public struct KinwallClient: Sendable {
     // MARK: Household
 
     public func settings() async throws -> Settings { try await send("GET", "api/settings") }
+    /// The family's feature switches; all on when the server can't be asked (offline, older servers),
+    /// since then there's nothing to hold back and the next call says what's wrong.
+    public func features() async -> Features { (try? await settings())?.on ?? Features() }
     public func members() async throws -> [Member] { try await send("GET", "api/members") }
     /// A counter that goes up whenever anything in the household changes; poll it to know when to refresh.
     public func rev() async throws -> Int { try await send("GET", "api/rev", as: Rev.self).rev }

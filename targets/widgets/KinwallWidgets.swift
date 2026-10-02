@@ -31,7 +31,9 @@ struct BoardEntry: TimelineEntry {
     let problem: Problem?
     /// The demo family's sample data (Demo), marked with DemoBadge.
     var demo = false
-    enum Problem { case signedOut, offline }
+    /// The family turned chores off (the board then has none).
+    var choresOff = false
+    enum Problem { case signedOut, offline, choresOff, listsOff }
 
     var nowNext: (now: BoardEvent?, next: BoardEvent?) { board?.nowAndNext(at: date) ?? (nil, nil) }
     var todayEvents: [BoardEvent] {
@@ -72,9 +74,13 @@ struct BoardProvider: TimelineProvider {
     private func load() async -> [BoardEntry] {
         var board: Board
         var demo = false
+        var features = Features()
         if let connection = try? SharedKeychain.widgetStore.load() {
-            guard let fetched = try? await KinwallClient(connection).board(days: 7) else { return [BoardEntry(date: .now, board: nil, problem: .offline)] }
-            board = fetched
+            let client = KinwallClient(connection)
+            async let on = client.features()
+            guard let fetched = try? await client.board(days: 7) else { return [BoardEntry(date: .now, board: nil, problem: .offline)] }
+            features = await on
+            board = fetched.respecting(features) // no chores or due items the family turned off
             // The Kinwall Focus filter's "Only my reminders": this person's events and family ones.
             if let focus = FocusSettings.current() { board = Board(today: board.today, events: board.events.filter { focus.shows($0.memberIds) }, items: board.items, chores: board.chores) }
         } else if Demo.isOn {
@@ -86,7 +92,7 @@ struct BoardProvider: TimelineProvider {
         let changes = board.events.filter { !$0.allDay && $0.date == board.today }
             .flatMap { [$0.startDate, $0.endDate, $0.leaveDate, ($0.leaveDate ?? $0.startDate)?.addingTimeInterval(-30 * 60)] }.compactMap { $0 } // and when relevance rises
             .filter { $0 > now && $0 < now.addingTimeInterval(30 * 60) }
-        return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board, problem: nil, demo: demo) }
+        return ([now] + Set(changes).sorted()).map { BoardEntry(date: $0, board: board, problem: nil, demo: demo, choresOff: !features.chores) }
     }
 }
 
@@ -107,12 +113,19 @@ extension BoardEvent {
     }
 }
 
+/// Signed out, offline, or a widget for something the family turned off in Kinwall's settings.
 struct ProblemView: View {
     let problem: BoardEntry.Problem
     var body: some View {
+        let (icon, text) = switch problem {
+        case .signedOut: ("person.crop.circle.badge.questionmark", "Open Kinwall to sign in")
+        case .offline: ("wifi.slash", "Can't reach Kinwall right now")
+        case .choresOff: ("moon.zzz", "Chores are turned off in Kinwall")
+        case .listsOff: ("moon.zzz", "Lists are turned off in Kinwall")
+        }
         VStack(alignment: .leading, spacing: 4) {
-            Image(systemName: problem == .signedOut ? "person.crop.circle.badge.questionmark" : "wifi.slash").foregroundStyle(.secondary)
-            Text(problem == .signedOut ? "Open Kinwall to sign in" : "Can't reach Kinwall right now")
+            Image(systemName: icon).foregroundStyle(.secondary)
+            Text(text)
                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -262,7 +275,7 @@ struct ChoresLeftView: View {
         Gauge(value: Double(c.total - c.remaining), in: 0...Double(max(c.total, 1))) {
             Image(systemName: "checkmark")
         } currentValueLabel: {
-            Text(c.total == 0 ? "–" : "\(c.remaining)")
+            Text(entry.choresOff ? "Off" : c.total == 0 ? "–" : "\(c.remaining)")
         }
         .gaugeStyle(.accessoryCircularCapacity)
     }

@@ -37,6 +37,34 @@ private func ev(_ id: String, _ title: String, _ start: String, _ end: String, a
         let s = TodaySummary(board: board([], chores: [.init(memberId: nil, name: nil, avatar: nil, color: nil, remaining: 1, total: 1)]), now: now, time: time)
         #expect(s.spoken.hasSuffix("1 chore left."))
     }
+
+    @Test func choresOffSaysNothingAboutChores() {
+        var off = Features(); off.chores = false; off.lists = false
+        let item = BoardItem(id: "i1", listId: "l1", title: "Pay the bill", listName: "To-dos", listEmoji: nil, dueDate: "2026-09-29", overdue: false, memberId: nil)
+        let b = Board(today: "2026-09-29", events: [], items: [item], chores: [.init(memberId: "m1", name: "Maya", avatar: nil, color: nil, remaining: 2, total: 3)]).respecting(off)
+        #expect(b.chores.isEmpty && b.items.isEmpty)
+        #expect(TodaySummary(board: b, now: now, time: time).spoken == "Nothing else on the calendar today.")
+        #expect(board([], chores: [.init(memberId: nil, name: nil, avatar: nil, color: nil, remaining: 1, total: 1)]).respecting(Features()).chores.count == 1, "on: kept")
+    }
+}
+
+@Suite struct FeaturesTests {
+    func settings(_ json: String) throws -> Settings { try JSONDecoder().decode(Settings.self, from: Data(json.utf8)) }
+
+    @Test func olderServersHaveEverythingOn() throws {
+        let s = try settings(#"{"familyName":"Our Family","timezone":null,"weekStart":0,"colorScheme":null}"#)
+        #expect(s.features == nil && s.rewardsEnabled == nil)
+        #expect(s.on == Features())
+        #expect(s.on.chores && s.on.lists && s.on.checkIns)
+    }
+
+    @Test func missingAndUnknownSwitchesDontBreakDecoding() throws {
+        let s = try settings(#"{"familyName":"F","weekStart":1,"features":{"chores":false,"lists":true,"meals":false,"somethingNew":false,"contacts":"odd"},"rewardsEnabled":false}"#)
+        #expect(!s.on.chores && s.on.lists && !s.on.meals)
+        #expect(s.on.checkIns, "missing: on")
+        #expect(s.on.contacts, "not a boolean: on")
+        #expect(s.rewardsEnabled == false)
+    }
 }
 
 @Suite struct TransitionWarningTests {
