@@ -11,14 +11,15 @@ import { useUi } from './theme'
 // The barcodes on books (ISBN) and groceries. iOS reports a UPC-A as an EAN-13 with a leading 0.
 const TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e'] as const
 
-// The beep (assets/sounds/scan-beep.wav, made for Kinwall): on unless turned off on the scanner, kept
-// on this device. It mixes with music or an audiobook instead of pausing it, and the silent switch
-// mutes it. One player for the app, so the beep isn't cut off when the scanner closes.
+// The beep (assets/sounds/scan-beep.wav, made for Kinwall, soft): on unless turned off on the scanner,
+// kept on this device. It plays with the silent switch on too (like a store scanner; the Beep button is
+// the off switch) and mixes with music or an audiobook instead of pausing it. One player for the app,
+// so the beep isn't cut off when the scanner closes.
 const BEEP_KEY = 'scanBeep'
 let beepPlayer: AudioPlayer | null = null
 function beep() {
   if (!beepPlayer) {
-    setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).catch(() => {})
+    setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' }).catch(() => {})
     beepPlayer = createAudioPlayer(require('../assets/sounds/scan-beep.wav'))
   }
   beepPlayer.seekTo(0).then(() => beepPlayer?.play()).catch(() => {})
