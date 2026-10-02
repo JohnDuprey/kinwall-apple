@@ -24,6 +24,6 @@ What the app sends is the family's own data, to their own Kinwall server. For a 
 - **Photos or videos:** the family photos.
 - **Other user content:** events, chores, lists, recipes, notes and journal entries.
 
-The camera (the barcode scanner, `src/Scanner.tsx`) reads barcodes on the phone: no picture is kept or sent, only the barcode's digits, to the family's server as a book search. So it adds nothing to the list.
+The camera (the barcode scanner, `src/Scanner.tsx`) reads barcodes on the phone: no picture is kept or sent, only the barcode's digits, to the family's server (a book search, or a product lookup for a shopping list). So it adds nothing to the list.
 
 Nothing goes to third parties: no analytics, no ads, no tracking domains. The App Store privacy labels should match this list (docs/PLAN.md, App Store readiness).

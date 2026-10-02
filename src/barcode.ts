@@ -1,7 +1,7 @@
 // The barcode scanner's hand-off (src/Scanner.tsx): the page (web/src/native.ts in the kinwall repo)
 // asks with {type: 'scanBarcode'} and hears back through a 'kinwall:barcode' event.
 
-/** A product or book barcode (EAN-8 up to EAN-14, so ISBN-13 and UPC-A too) as digits, else null. */
+/** A product (groceries) or book barcode (EAN-8 up to EAN-14, so ISBN-13 and UPC-A too) as digits, else null. */
 export function cleanBarcode(data: string): string | null {
   const s = data.trim()
   return /^\d{8,14}$/.test(s) ? s : null

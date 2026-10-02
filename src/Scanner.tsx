@@ -8,7 +8,7 @@ import { useUi } from './theme'
 // The barcodes on books (ISBN) and groceries. iOS reports a UPC-A as an EAN-13 with a leading 0.
 const TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e'] as const
 
-/** Full-screen barcode scanner (the page's Scan button, web/src/native.ts): the first barcode it
+/** Full-screen barcode scanner (the page's Scan buttons: Add a book, and shopping lists; web/src/native.ts): the first barcode it
  * reads, or null when closed. Asks for the camera the first time it opens. */
 export function Scanner({ onDone }: { onDone: (code: string | null) => void }) {
   const ui = useUi()
@@ -42,7 +42,7 @@ export function Scanner({ onDone }: { onDone: (code: string | null) => void }) {
           <Text style={ui.muted}>
             {permission && !permission.canAskAgain
               ? 'Kinwall needs the camera to scan. Turn it on in Settings, then try again.'
-              : 'Kinwall uses the camera to read barcodes, like the ISBN on the back of a book.'}
+              : 'Kinwall uses the camera to read barcodes on books and groceries.'}
           </Text>
           {permission && !permission.canAskAgain
             ? <Pressable style={ui.button} onPress={() => Linking.openSettings()}><Text style={ui.buttonText}>Open Settings</Text></Pressable>

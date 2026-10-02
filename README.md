@@ -78,7 +78,7 @@ A contact can be shared to Kinwall the same way, from the phone's Contacts app o
 
 ## Scanning a barcode
 
-The web app's **📷 Scan** button (the Reading tracker's Add a book) shows only in the app, which says it can scan with `window.kinwallNative.barcodeScanner`. The page posts `{ type: 'scanBarcode' }`; `src/Scanner.tsx` opens the back camera full screen (`expo-camera`, which reads EAN-13, EAN-8, UPC-A and UPC-E itself) and the first barcode it reads, as digits (`src/barcode.ts`), goes back to the page as a `kinwall:barcode` event, or `null` on Cancel. The camera permission is asked the first time; if it was turned down, the screen offers **Open Settings**. No microphone.
+The web app's **📷 Scan** buttons (the Reading tracker's Add a book, and shopping lists' add bar) show only in the app, which says it can scan with `window.kinwallNative.barcodeScanner`. The page posts `{ type: 'scanBarcode' }`; `src/Scanner.tsx` opens the back camera full screen (`expo-camera`, which reads EAN-13, EAN-8, UPC-A and UPC-E itself) and the first barcode it reads, as digits (`src/barcode.ts`), goes back to the page as a `kinwall:barcode` event, or `null` on Cancel. The camera permission is asked the first time; if it was turned down, the screen offers **Open Settings**. No microphone.
 
 ## Test the shared core
 

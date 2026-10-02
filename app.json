@@ -149,7 +149,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Kinwall uses the camera to scan barcodes, like a book's ISBN.",
+          "cameraPermission": "Kinwall uses the camera to scan barcodes on books and groceries.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
